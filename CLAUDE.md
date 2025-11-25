@@ -29,3 +29,4 @@ Single test: `uv run pytest test/test_file.py::test_name -v`
 - `src/databricks_dbt_cli/` - Main package (src-layout)
 - `test/` - Tests (relaxed rules: no type hints, docstrings, or assert warnings required)
 - Uses Typer for CLI interface
+- Never add new dependencies on your own, ask me to do it

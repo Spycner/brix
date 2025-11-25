@@ -9,8 +9,16 @@ authors = [
 ]
 requires-python = ">=3.10"
 dependencies = [
+    "azure-identity>=1.25.1",
+    "httpx>=0.28.1",
+    "platformdirs>=4.5.0",
+    "pydantic>=2.12.4",
+    "pyyaml>=6.0.3",
     "typer>=0.20.0",
 ]
+
+[project.scripts]
+ddbt = "databricks_dbt_cli.main:app"
 
 [build-system]
 requires = ["hatchling"]
@@ -57,7 +65,8 @@ select = [
     "W", # pycodestyle warnings
 ]
 ignore = [
-    "E501"
+    "E501",
+    "D100"
 ]
 
 fixable = ["ALL"]
