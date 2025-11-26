@@ -24,6 +24,7 @@ def run_dbt(args: list[str]) -> int:
     pre_dbt_hook()
 
     logger.debug("Executing dbt command: dbt %s", " ".join(args))
+    # "unsafe" passthrough is intended, we trust the user to pass valid arguments. Its their local machine.
     result = subprocess.run(["dbt", *args])  # noqa: S603, S607
     logger.debug("dbt exited with code: %d", result.returncode)
 
