@@ -10,6 +10,7 @@ from brix.modules.dbt import run_dbt
 class DbtGroup(TyperGroup):
     """Custom Typer Group that passes unknown commands through to dbt."""
 
+    # Return type matches Click's Command.resolve_command() signature
     def resolve_command(
         self, ctx: click.Context, args: list[str]
     ) -> tuple[str | None, click.Command | None, list[str]]:

@@ -4,6 +4,9 @@ Environment variables:
     BRIX_LOG: Log level (TRACE, DEBUG, INFO, WARN, ERROR, OFF)
     BRIX_LOG_PATH: File path for log output
     BRIX_LOG_JSON: Enable JSON format (true/false)
+
+Logging convention: Use %-formatting for logger calls (lazy evaluation),
+f-strings elsewhere. This is Python logging best practice.
 """
 
 from __future__ import annotations
@@ -71,6 +74,7 @@ class LogConfig(BaseSettings):
         return v
 
 
+# Timestamp format: ISO8601/RFC3339 for machine parseability and timezone clarity
 class BrixFormatter(logging.Formatter):
     """Human-readable log formatter for console output.
 
@@ -136,7 +140,7 @@ def setup_logging(
         config = LogConfig()
 
         # Apply CLI overrides
-        effective_level = (level.upper() if level else None) or config.log
+        effective_level = level.upper() if level else config.log
         effective_path = log_path if log_path is not None else config.log_path
         effective_json = json_format if json_format is not None else config.log_json
 
