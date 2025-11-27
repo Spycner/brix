@@ -7,16 +7,28 @@ This file provides guidance to Claude Code (claude.ai/code) when working with co
 Use `uv` for all Python operations. Task runner commands via poethepoet:
 
 ```bash
-uv run poe lint       # Run ruff linting
-uv run poe format     # Run ruff formatting
-uv run poe typecheck  # Run ty type checking
-uv run poe test       # Run pytest
-uv run poe check      # Run lint + typecheck together
+uv run poe lint            # Run ruff linting
+uv run poe format          # Run ruff formatting
+uv run poe typecheck       # Run ty type checking
+uv run poe test            # Run all tests
+uv run poe test-unit       # Run unit tests only
+uv run poe test-integration # Run integration tests only
+uv run poe check           # Run lint + typecheck together
 ```
 
-Single test: `uv run pytest test/test_file.py::test_name -v`
+Single test: `uv run pytest tests/unit/test_file.py::test_name -v`
 
 Run the CLI: `uv run brix --help`
+
+## Before Committing
+
+**Always run pre-commit before committing to avoid CI failures:**
+
+```bash
+uv run pre-commit run --all-files
+```
+
+This runs ruff linting, ruff formatting, type checking, and tests. The CI will fail if formatting is not applied.
 
 ## Code Style
 
@@ -29,7 +41,9 @@ Run the CLI: `uv run brix --help`
 ## Project Structure
 
 - `src/brix/` - Main package (src-layout)
-- `test/` - Tests (relaxed rules: no type hints, docstrings, or assert warnings required)
+- `tests/unit/` - Unit tests (mocked, isolated)
+- `tests/integration/` - Integration tests (require dbt, marked with `@pytest.mark.integration`)
+- `tests/fixtures/` - Test fixtures (e.g., minimal dbt project for integration tests)
 
 ## Architecture
 
