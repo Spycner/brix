@@ -24,6 +24,7 @@ build-backend = "hatchling.build"
 [dependency-groups]
 dev = [
     "dbt-core>=1.9.0",
+    "dbt-databricks>=1.11.0",
     "dbt-duckdb>=1.9.0",
     "poethepoet>=0.38.0",
     "pre-commit>=4.5.0",

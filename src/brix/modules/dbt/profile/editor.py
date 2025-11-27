@@ -6,8 +6,9 @@ Provides CRUD operations for profiles and outputs with atomic save-on-change beh
 from __future__ import annotations
 
 from pathlib import Path
+from typing import Any
 
-from brix.modules.dbt.profile.models import DbtProfiles, DuckDbOutput, ProfileTarget
+from brix.modules.dbt.profile.models import DbtProfiles, OutputConfig, ProfileTarget
 from brix.modules.dbt.profile.service import get_default_profile_path
 from brix.utils.logging import get_logger
 
@@ -109,7 +110,7 @@ def add_profile(
     name: str,
     target: str,
     output_name: str,
-    output_config: DuckDbOutput,
+    output_config: OutputConfig,
 ) -> DbtProfiles:
     """Add a new profile.
 
@@ -118,7 +119,7 @@ def add_profile(
         name: Profile name
         target: Default target name
         output_name: Initial output name
-        output_config: Initial output configuration
+        output_config: Initial output configuration (DuckDbOutput or DatabricksOutput)
 
     Returns:
         Updated DbtProfiles instance
@@ -184,7 +185,7 @@ def add_output(
     profiles: DbtProfiles,
     profile_name: str,
     output_name: str,
-    output_config: DuckDbOutput,
+    output_config: OutputConfig,
 ) -> DbtProfiles:
     """Add an output to a profile.
 
@@ -192,7 +193,7 @@ def add_output(
         profiles: DbtProfiles instance
         profile_name: Name of the profile
         output_name: Name for the new output
-        output_config: Output configuration
+        output_config: Output configuration (DuckDbOutput or DatabricksOutput)
 
     Returns:
         Updated DbtProfiles instance
@@ -221,13 +222,15 @@ def update_output(
     path: str | None = None,
     threads: int | None = None,
 ) -> DbtProfiles:
-    """Update an output's configuration.
+    """Update a DuckDB output's configuration (legacy interface).
+
+    For updating any adapter type, use update_output_fields() instead.
 
     Args:
         profiles: DbtProfiles instance
         profile_name: Name of the profile
         output_name: Name of the output
-        path: New path value (optional)
+        path: New path value (optional, DuckDB only)
         threads: New threads value (optional)
 
     Returns:
@@ -236,6 +239,39 @@ def update_output(
     Raises:
         ProfileNotFoundError: If profile doesn't exist
         OutputNotFoundError: If output doesn't exist
+        ValueError: If threads is not a positive integer
+    """
+    updates: dict[str, Any] = {}
+    if path is not None:
+        updates["path"] = path
+    if threads is not None:
+        updates["threads"] = threads
+    return update_output_fields(profiles, profile_name, output_name, updates)
+
+
+def update_output_fields(
+    profiles: DbtProfiles,
+    profile_name: str,
+    output_name: str,
+    updates: dict[str, Any],
+) -> DbtProfiles:
+    """Update an output's configuration with arbitrary field updates.
+
+    Works with any adapter type (DuckDB, Databricks, etc.).
+
+    Args:
+        profiles: DbtProfiles instance
+        profile_name: Name of the profile
+        output_name: Name of the output
+        updates: Dictionary of field names to new values
+
+    Returns:
+        Updated DbtProfiles instance
+
+    Raises:
+        ProfileNotFoundError: If profile doesn't exist
+        OutputNotFoundError: If output doesn't exist
+        ValueError: If validation fails (e.g., threads < 1)
     """
     if profile_name not in profiles.root:
         msg = f"Profile '{profile_name}' not found"
@@ -247,10 +283,17 @@ def update_output(
 
     output = profiles.root[profile_name].outputs[output_name]
 
-    if path is not None:
-        output.path = path
-    if threads is not None:
-        output.threads = threads
+    # Validate threads if being updated
+    if "threads" in updates:
+        threads = updates["threads"]
+        if threads is not None and threads < 1:
+            msg = "threads must be a positive integer"
+            raise ValueError(msg)
+
+    # Apply updates to the output
+    for field, value in updates.items():
+        if value is not None:
+            setattr(output, field, value)
 
     return profiles
 
@@ -291,7 +334,7 @@ def delete_output(
     return profiles
 
 
-def get_output(profiles: DbtProfiles, profile_name: str, output_name: str) -> DuckDbOutput:
+def get_output(profiles: DbtProfiles, profile_name: str, output_name: str) -> OutputConfig:
     """Get an output configuration.
 
     Args:
@@ -300,7 +343,7 @@ def get_output(profiles: DbtProfiles, profile_name: str, output_name: str) -> Du
         output_name: Name of the output
 
     Returns:
-        Output configuration
+        Output configuration (DuckDbOutput or DatabricksOutput)
 
     Raises:
         ProfileNotFoundError: If profile doesn't exist

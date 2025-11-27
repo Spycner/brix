@@ -191,6 +191,11 @@ class TestUpdateOutput:
         with pytest.raises(OutputNotFoundError):
             update_output(sample_profiles, "default", "nonexistent", path="x")
 
+    @pytest.mark.parametrize("invalid_threads", [0, -1, -10])
+    def test_update_output_invalid_threads(self, sample_profiles, invalid_threads):
+        with pytest.raises(ValueError, match="threads must be a positive integer"):
+            update_output(sample_profiles, "default", "dev", threads=invalid_threads)
+
 
 class TestDeleteOutput:
     """Tests for deleting outputs."""
@@ -435,3 +440,105 @@ class TestEditCommand:
 
         assert result.exit_code == 1
         assert "not found" in result.output
+
+    def test_delete_target_output_with_fallback(self, profiles_file):
+        """Test deleting the current target output with --target to specify fallback."""
+        result = runner.invoke(
+            app,
+            [
+                "dbt",
+                "profile",
+                "edit",
+                "-p",
+                str(profiles_file),
+                "--action",
+                "delete-output",
+                "--profile",
+                "default",
+                "--output",
+                "dev",  # dev is the current target
+                "--target",
+                "prod",  # fallback to prod
+                "--force",
+            ],
+        )
+
+        assert result.exit_code == 0
+        assert "Changed target to 'prod'" in result.output
+        assert "Deleted output 'dev'" in result.output
+
+        profiles = load_profiles(profiles_file)
+        assert "dev" not in profiles.root["default"].outputs
+        assert profiles.root["default"].target == "prod"
+
+    def test_delete_target_output_force_without_fallback_fails(self, profiles_file):
+        """Test that deleting target output with --force but no --target fails."""
+        result = runner.invoke(
+            app,
+            [
+                "dbt",
+                "profile",
+                "edit",
+                "-p",
+                str(profiles_file),
+                "--action",
+                "delete-output",
+                "--profile",
+                "default",
+                "--output",
+                "dev",  # dev is the current target
+                "--force",
+            ],
+        )
+
+        assert result.exit_code == 1
+        assert "Cannot delete target output" in result.output
+        assert "--target for fallback" in result.output
+
+    def test_delete_target_output_invalid_fallback_fails(self, profiles_file):
+        """Test that specifying an invalid fallback target fails."""
+        result = runner.invoke(
+            app,
+            [
+                "dbt",
+                "profile",
+                "edit",
+                "-p",
+                str(profiles_file),
+                "--action",
+                "delete-output",
+                "--profile",
+                "default",
+                "--output",
+                "dev",
+                "--target",
+                "nonexistent",
+                "--force",
+            ],
+        )
+
+        assert result.exit_code == 1
+        assert "not a valid output" in result.output
+
+    def test_delete_only_target_output_fails(self, profiles_file):
+        """Test that deleting the only output (which is also the target) fails."""
+        result = runner.invoke(
+            app,
+            [
+                "dbt",
+                "profile",
+                "edit",
+                "-p",
+                str(profiles_file),
+                "--action",
+                "delete-output",
+                "--profile",
+                "other",  # has only one output: staging
+                "--output",
+                "staging",
+                "--force",
+            ],
+        )
+
+        assert result.exit_code == 1
+        assert "no other outputs exist" in result.output

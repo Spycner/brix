@@ -1,5 +1,6 @@
 """Profile management commands for dbt."""
 
+from collections.abc import Callable
 from pathlib import Path
 from typing import Annotated, Literal
 
@@ -25,6 +26,7 @@ from brix.modules.dbt.profile import (
     update_output,
     update_profile_target,
 )
+from brix.utils.logging import get_logger
 
 ActionType = Literal[
     "add-profile",
@@ -68,16 +70,20 @@ def init(
 
     Use --force to overwrite an existing profile.
     """
+    logger = get_logger()
     try:
         result = init_profile(profile_path=profile_path, force=force)
         typer.echo(result.message)
     except ProfileExistsError as e:
+        logger.debug("Profile exists error", exc_info=e)
         typer.echo(str(e), err=True)
         raise typer.Exit(1) from None
     except FileNotFoundError as e:
+        logger.debug("Template file not found", exc_info=e)
         typer.echo(f"Template error: {e}", err=True)
         raise typer.Exit(1) from None
     except ValueError as e:
+        logger.debug("Validation error", exc_info=e)
         typer.echo(f"Validation error: {e}", err=True)
         raise typer.Exit(1) from None
 
@@ -194,6 +200,7 @@ def _run_cli_action(
     force: bool,
 ) -> None:
     """Run non-interactive CLI action."""
+    logger = get_logger()
     target_path = profile_path or get_default_profile_path()
 
     try:
@@ -204,11 +211,19 @@ def _run_cli_action(
     try:
         _dispatch_cli_action(action, profiles, target_path, profile, output, target, path_value, threads, force)
     except (ProfileNotFoundError, ProfileAlreadyExistsError, OutputNotFoundError, OutputAlreadyExistsError) as e:
+        logger.debug("Profile/output error during %s", action, exc_info=e)
         typer.echo(str(e), err=True)
         raise typer.Exit(1) from None
     except ValueError as e:
+        logger.debug("Validation error during %s", action, exc_info=e)
         typer.echo(f"Validation error: {e}", err=True)
         raise typer.Exit(1) from None
+
+
+ActionHandler = Callable[
+    [DbtProfiles, Path, str | None, str | None, str | None, str | None, int | None, bool],
+    None,
+]
 
 
 def _dispatch_cli_action(
@@ -223,28 +238,19 @@ def _dispatch_cli_action(
     force: bool,
 ) -> None:
     """Dispatch CLI action to appropriate handler."""
-    if action == "add-profile":
-        _handle_add_profile(profiles, target_path, profile, target, output, path_value, threads)
-    elif action == "edit-profile":
-        _handle_edit_profile(profiles, target_path, profile, target)
-    elif action == "delete-profile":
-        _handle_delete_profile_cli(profiles, target_path, profile, force)
-    elif action == "add-output":
-        _handle_add_output_cli(profiles, target_path, profile, output, path_value, threads)
-    elif action == "edit-output":
-        _handle_edit_output_cli(profiles, target_path, profile, output, path_value, threads)
-    elif action == "delete-output":
-        _handle_delete_output_cli(profiles, target_path, profile, output, force)
+    handler = ACTION_HANDLERS[action]
+    handler(profiles, target_path, profile, output, target, path_value, threads, force)
 
 
 def _handle_add_profile(
     profiles: DbtProfiles,
     target_path: Path,
     profile_name: str | None,
-    target_name: str | None,
     output_name: str | None,
+    target_name: str | None,
     path_value: str | None,
     threads: int | None,
+    force: bool,
 ) -> None:
     """Handle add-profile action in CLI mode."""
     if not profile_name:
@@ -266,7 +272,11 @@ def _handle_edit_profile(
     profiles: DbtProfiles,
     target_path: Path,
     profile_name: str | None,
+    output_name: str | None,
     target_name: str | None,
+    path_value: str | None,
+    threads: int | None,
+    force: bool,
 ) -> None:
     """Handle edit-profile action in CLI mode."""
     if not profile_name:
@@ -286,6 +296,10 @@ def _handle_delete_profile_cli(
     profiles: DbtProfiles,
     target_path: Path,
     profile_name: str | None,
+    output_name: str | None,
+    target_name: str | None,
+    path_value: str | None,
+    threads: int | None,
     force: bool,
 ) -> None:
     """Handle delete-profile action in CLI mode."""
@@ -306,8 +320,10 @@ def _handle_add_output_cli(
     target_path: Path,
     profile_name: str | None,
     output_name: str | None,
+    target_name: str | None,
     path_value: str | None,
     threads: int | None,
+    force: bool,
 ) -> None:
     """Handle add-output action in CLI mode."""
     if not profile_name:
@@ -332,8 +348,10 @@ def _handle_edit_output_cli(
     target_path: Path,
     profile_name: str | None,
     output_name: str | None,
+    target_name: str | None,
     path_value: str | None,
     threads: int | None,
+    force: bool,
 ) -> None:
     """Handle edit-output action in CLI mode."""
     if not profile_name:
@@ -353,11 +371,51 @@ def _handle_edit_output_cli(
     typer.echo(f"Updated output '{output_name}' in profile '{profile_name}'")
 
 
+def _resolve_target_fallback(
+    output_name: str,
+    other_outputs: list[str],
+    new_target: str | None,
+    force: bool,
+) -> str:
+    """Resolve the fallback target when deleting the current target output.
+
+    Returns:
+        The resolved new target name
+
+    Raises:
+        typer.Exit: If resolution fails
+    """
+    if new_target:
+        if new_target not in other_outputs:
+            typer.echo(f"Target '{new_target}' is not a valid output. Available: {', '.join(other_outputs)}", err=True)
+            raise typer.Exit(1)
+        return new_target
+
+    if force:
+        typer.echo(
+            f"Cannot delete target output '{output_name}' with --force without specifying --target for fallback.",
+            err=True,
+        )
+        raise typer.Exit(1)
+
+    typer.echo(f"Output '{output_name}' is the current target. Select a new target:")
+    for i, name in enumerate(other_outputs, 1):
+        typer.echo(f"  {i}. {name}")
+    choice = typer.prompt("Enter number", type=int)
+    if choice < 1 or choice > len(other_outputs):
+        typer.echo("Invalid choice", err=True)
+        raise typer.Exit(1)
+    return other_outputs[choice - 1]
+
+
 def _handle_delete_output_cli(
     profiles: DbtProfiles,
     target_path: Path,
     profile_name: str | None,
     output_name: str | None,
+    new_target: str | None,
+    path_value: str | None,
+    threads: int | None,
     force: bool,
 ) -> None:
     """Handle delete-output action in CLI mode."""
@@ -369,9 +427,34 @@ def _handle_delete_output_cli(
         typer.echo("--output is required for delete-output", err=True)
         raise typer.Exit(1)
 
+    # Check if deleting the current target
+    profile = profiles.root[profile_name]
+    if profile.target == output_name:
+        other_outputs = [name for name in profile.outputs if name != output_name]
+        if not other_outputs:
+            typer.echo(
+                f"Cannot delete output '{output_name}' - it is the current target and no other outputs exist.",
+                err=True,
+            )
+            raise typer.Exit(1)
+
+        resolved_target = _resolve_target_fallback(output_name, other_outputs, new_target, force)
+        update_profile_target(profiles, profile_name, resolved_target)
+        typer.echo(f"Changed target to '{resolved_target}'")
+
     if not force:
         typer.confirm(f"Delete output '{output_name}' from profile '{profile_name}'?", abort=True)
 
     delete_output(profiles, profile_name, output_name)
     save_profiles(profiles, target_path)
     typer.echo(f"Deleted output '{output_name}' from profile '{profile_name}'")
+
+
+ACTION_HANDLERS: dict[ActionType, ActionHandler] = {
+    "add-profile": _handle_add_profile,
+    "edit-profile": _handle_edit_profile,
+    "delete-profile": _handle_delete_profile_cli,
+    "add-output": _handle_add_output_cli,
+    "edit-output": _handle_edit_output_cli,
+    "delete-output": _handle_delete_output_cli,
+}

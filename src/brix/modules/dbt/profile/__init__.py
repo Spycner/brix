@@ -18,9 +18,17 @@ from brix.modules.dbt.profile.editor import (
     load_profiles,
     save_profiles,
     update_output,
+    update_output_fields,
     update_profile_target,
 )
-from brix.modules.dbt.profile.models import DbtProfiles, DuckDbOutput, OutputConfig, ProfileTarget
+from brix.modules.dbt.profile.models import (
+    DatabricksAuthType,
+    DatabricksOutput,
+    DbtProfiles,
+    DuckDbOutput,
+    OutputConfig,
+    ProfileTarget,
+)
 from brix.modules.dbt.profile.prompts import run_interactive_edit
 from brix.modules.dbt.profile.service import (
     ProfileConfig,
@@ -33,6 +41,8 @@ from brix.modules.dbt.profile.service import (
 
 __all__ = [  # noqa: RUF022
     # Models
+    "DatabricksAuthType",
+    "DatabricksOutput",
     "DbtProfiles",
     "DuckDbOutput",
     "OutputConfig",
@@ -59,6 +69,7 @@ __all__ = [  # noqa: RUF022
     "load_profiles",
     "save_profiles",
     "update_output",
+    "update_output_fields",
     "update_profile_target",
     # Prompts
     "run_interactive_edit",

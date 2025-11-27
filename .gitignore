@@ -25,3 +25,5 @@ htmlcov
 .idea
 .vscode
 *.swp
+
+logs
