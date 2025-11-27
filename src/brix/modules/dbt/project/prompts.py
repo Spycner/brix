@@ -1,7 +1,8 @@
-"""Interactive prompts for dbt project initialization using questionary.
+"""Interactive prompts for dbt project initialization and editing using questionary.
 
 Provides a wizard-style flow for creating new dbt projects with
 profile selection, package configuration, and Databricks-specific options.
+Also provides interactive editing for existing projects.
 """
 
 from __future__ import annotations
@@ -15,7 +16,7 @@ import typer
 
 from brix.modules.dbt.profile.models import DatabricksOutput, DbtProfiles
 from brix.modules.dbt.profile.service import get_default_profile_path
-from brix.modules.dbt.project.models import HubPackage, ProjectNameError, validate_project_name
+from brix.modules.dbt.project.models import DbtPackages, DbtProject, HubPackage, ProjectNameError, validate_project_name
 from brix.modules.dbt.project.service import (
     POPULAR_PACKAGES,
     ProjectConfig,
@@ -566,3 +567,774 @@ def run_interactive_init(profile_path: Path | None = None) -> None:  # noqa: C90
         persist_docs,
         with_example,
     )
+
+
+# =============================================================================
+# Project Edit Prompts
+# =============================================================================
+
+# Action types for edit main menu
+EditMainAction = Literal[
+    "edit_settings",
+    "manage_packages",
+    "edit_paths",
+    "exit",
+]
+
+# Action types for settings submenu
+SettingsAction = Literal["name", "profile", "version", "require_dbt_version", "back"]
+
+# Action types for packages submenu
+PackageAction = Literal[
+    "add_hub",
+    "add_git",
+    "add_local",
+    "remove",
+    "update_version",
+    "back",
+]
+
+# Action types for paths submenu
+PathAction = Literal[
+    "model_paths",
+    "seed_paths",
+    "test_paths",
+    "macro_paths",
+    "snapshot_paths",
+    "analysis_paths",
+    "asset_paths",
+    "clean_targets",
+    "back",
+]
+
+# Action types for path editing
+PathEditAction = Literal["add", "remove", "view", "back"]
+
+
+def prompt_edit_main_action() -> EditMainAction:
+    """Prompt user for main edit menu action.
+
+    Returns:
+        Selected action
+    """
+    choices = [
+        questionary.Choice("Edit project settings", value="edit_settings"),
+        questionary.Choice("Manage packages", value="manage_packages"),
+        questionary.Choice("Edit path configurations", value="edit_paths"),
+        questionary.Choice("Exit", value="exit"),
+    ]
+    result = questionary.select("What would you like to do?", choices=choices).ask()
+    if result is None:
+        return "exit"
+    return result
+
+
+def prompt_settings_action() -> SettingsAction:
+    """Prompt user for settings submenu action.
+
+    Returns:
+        Selected action
+    """
+    choices = [
+        questionary.Choice("Edit project name", value="name"),
+        questionary.Choice("Edit profile name", value="profile"),
+        questionary.Choice("Edit version", value="version"),
+        questionary.Choice("Edit require-dbt-version", value="require_dbt_version"),
+        questionary.Choice("Back to main menu", value="back"),
+    ]
+    result = questionary.select("What would you like to edit?", choices=choices).ask()
+    if result is None:
+        return "back"
+    return result
+
+
+def prompt_package_action() -> PackageAction:
+    """Prompt user for package submenu action.
+
+    Returns:
+        Selected action
+    """
+    choices = [
+        questionary.Choice("Add hub package", value="add_hub"),
+        questionary.Choice("Add git package", value="add_git"),
+        questionary.Choice("Add local package", value="add_local"),
+        questionary.Choice("Remove package", value="remove"),
+        questionary.Choice("Update package version", value="update_version"),
+        questionary.Choice("Back to main menu", value="back"),
+    ]
+    result = questionary.select("What would you like to do?", choices=choices).ask()
+    if result is None:
+        return "back"
+    return result
+
+
+def prompt_path_field_action() -> PathAction:
+    """Prompt user for path field selection.
+
+    Returns:
+        Selected path field or back
+    """
+    choices = [
+        questionary.Choice("model-paths", value="model_paths"),
+        questionary.Choice("seed-paths", value="seed_paths"),
+        questionary.Choice("test-paths", value="test_paths"),
+        questionary.Choice("macro-paths", value="macro_paths"),
+        questionary.Choice("snapshot-paths", value="snapshot_paths"),
+        questionary.Choice("analysis-paths", value="analysis_paths"),
+        questionary.Choice("asset-paths", value="asset_paths"),
+        questionary.Choice("clean-targets", value="clean_targets"),
+        questionary.Choice("Back to main menu", value="back"),
+    ]
+    result = questionary.select("Select path field to edit:", choices=choices).ask()
+    if result is None:
+        return "back"
+    return result
+
+
+def prompt_path_edit_action(field_name: str, current_paths: list[str]) -> PathEditAction:
+    """Prompt user for path edit action.
+
+    Args:
+        field_name: Name of the path field
+        current_paths: Current paths in the field
+
+    Returns:
+        Selected action
+    """
+    typer.echo(f"\nCurrent {field_name}: {', '.join(current_paths) if current_paths else '(none)'}")
+
+    choices = [
+        questionary.Choice("Add path", value="add"),
+        questionary.Choice("Remove path", value="remove"),
+        questionary.Choice("View current paths", value="view"),
+        questionary.Choice("Back", value="back"),
+    ]
+    result = questionary.select("What would you like to do?", choices=choices).ask()
+    if result is None:
+        return "back"
+    return result
+
+
+def prompt_edit_project_name(current: str) -> str | None:
+    """Prompt for new project name with validation.
+
+    Args:
+        current: Current project name
+
+    Returns:
+        New project name or None if cancelled
+    """
+    while True:
+        name = questionary.text(
+            "Enter new project name:",
+            default=current,
+            instruction="Must start with letter/underscore, alphanumeric only",
+        ).ask()
+
+        if name is None:
+            return None
+
+        name = name.strip()
+        if not name:
+            typer.echo("Project name cannot be empty.", err=True)
+            continue
+
+        try:
+            validate_project_name(name)
+            return name
+        except ProjectNameError as e:
+            typer.echo(str(e), err=True)
+
+
+def prompt_edit_profile_name(current: str) -> str | None:
+    """Prompt for new profile name.
+
+    Args:
+        current: Current profile name
+
+    Returns:
+        New profile name or None if cancelled
+    """
+    return questionary.text("Enter new profile name:", default=current).ask()
+
+
+def prompt_edit_version(current: str) -> str | None:
+    """Prompt for new version.
+
+    Args:
+        current: Current version
+
+    Returns:
+        New version or None if cancelled
+    """
+    return questionary.text("Enter new version:", default=current).ask()
+
+
+def prompt_edit_require_dbt_version(current: str | None) -> str | None:
+    """Prompt for new require-dbt-version.
+
+    Args:
+        current: Current constraint (may be None)
+
+    Returns:
+        New constraint or None if cancelled/cleared
+    """
+    result = questionary.text(
+        "Enter dbt version constraint (empty to clear):",
+        default=current or "",
+        instruction="e.g., >=1.0.0,<2.0.0",
+    ).ask()
+
+    if result is None:
+        return current  # Cancelled, keep current
+    return result.strip() or None
+
+
+def prompt_add_hub_package_details() -> tuple[str, str] | None:
+    """Prompt for hub package details.
+
+    Returns:
+        Tuple of (package_name, version) or None if cancelled
+    """
+    # Offer popular packages or custom entry
+    choices = [questionary.Choice(f"{pkg} - {desc}", value=pkg) for pkg, desc in POPULAR_PACKAGES]
+    choices.append(questionary.Choice("Enter custom package name", value="_custom_"))
+
+    selected = questionary.select("Select package:", choices=choices).ask()
+    if selected is None:
+        return None
+
+    if selected == "_custom_":
+        package_name = questionary.text(
+            "Enter package name:",
+            instruction="e.g., dbt-labs/dbt_utils",
+        ).ask()
+        if not package_name:
+            return None
+    else:
+        package_name = selected
+
+    # Fetch version
+    typer.echo(f"Fetching latest version for {package_name}...")
+    version = get_package_version(package_name)
+    typer.echo(f"  Found version: {version}")
+
+    # Allow override
+    custom_version = questionary.text(
+        "Version (press Enter to accept):",
+        default=version,
+    ).ask()
+
+    if custom_version is None:
+        return None
+
+    return (package_name, custom_version)
+
+
+def prompt_add_git_package_details() -> tuple[str, str, str | None] | None:
+    """Prompt for git package details.
+
+    Returns:
+        Tuple of (git_url, revision, subdirectory) or None if cancelled
+    """
+    git_url = questionary.text(
+        "Enter git URL:",
+        instruction="e.g., https://github.com/org/repo.git",
+    ).ask()
+    if not git_url:
+        return None
+
+    revision = questionary.text(
+        "Enter revision:",
+        default="main",
+        instruction="Branch, tag, or commit hash",
+    ).ask()
+    if not revision:
+        return None
+
+    subdirectory = questionary.text(
+        "Enter subdirectory (optional):",
+        instruction="Leave empty if package is at repo root",
+    ).ask()
+
+    if subdirectory is None:
+        return None
+
+    return (git_url, revision, subdirectory.strip() or None)
+
+
+def prompt_add_local_package_path() -> str | None:
+    """Prompt for local package path.
+
+    Returns:
+        Local path or None if cancelled
+    """
+    return questionary.text(
+        "Enter local path:",
+        instruction="e.g., ../shared_macros",
+    ).ask()
+
+
+def prompt_select_package(packages: DbtPackages) -> str | None:
+    """Prompt user to select a package.
+
+    Args:
+        packages: DbtPackages instance
+
+    Returns:
+        Selected package identifier or None if cancelled
+    """
+    from brix.modules.dbt.project.editor import get_package_display_info
+
+    if not packages.packages:
+        typer.echo("No packages configured.", err=True)
+        return None
+
+    display_info = get_package_display_info(packages)
+    choices = [questionary.Choice(f"{ident} ({info})", value=ident) for ident, info in display_info]
+
+    return questionary.select("Select package:", choices=choices).ask()
+
+
+def prompt_new_package_version(current: str) -> str | None:
+    """Prompt for new package version.
+
+    Args:
+        current: Current version
+
+    Returns:
+        New version or None if cancelled
+    """
+    return questionary.text("Enter new version:", default=current).ask()
+
+
+def prompt_add_path(field_name: str) -> str | None:
+    """Prompt to add a path.
+
+    Args:
+        field_name: Name of the path field
+
+    Returns:
+        Path to add or None if cancelled
+    """
+    return questionary.text(f"Enter path to add to {field_name}:").ask()
+
+
+def prompt_remove_path(current_paths: list[str]) -> str | None:
+    """Prompt to select a path to remove.
+
+    Args:
+        current_paths: Current paths
+
+    Returns:
+        Path to remove or None if cancelled
+    """
+    if not current_paths:
+        typer.echo("No paths to remove.", err=True)
+        return None
+
+    return questionary.select("Select path to remove:", choices=current_paths).ask()
+
+
+def prompt_create_directory(path: Path) -> bool:
+    """Ask user if they want to create a directory.
+
+    Args:
+        path: Directory path
+
+    Returns:
+        True if user wants to create it
+    """
+    return (
+        questionary.confirm(
+            f"Directory '{path}' does not exist. Create it?",
+            default=True,
+        ).ask()
+        or False
+    )
+
+
+def prompt_confirm_delete(item_description: str) -> bool:
+    """Prompt user to confirm deletion.
+
+    Args:
+        item_description: Description of item being deleted
+
+    Returns:
+        True if confirmed
+    """
+    result = questionary.confirm(f"Remove {item_description}?", default=False).ask()
+    return result is True
+
+
+def _display_project_status(project: DbtProject, packages: DbtPackages, project_path: Path) -> None:
+    """Display current project configuration.
+
+    Args:
+        project: DbtProject instance
+        packages: DbtPackages instance
+        project_path: Path to dbt_project.yml
+    """
+    typer.echo(f"\n[Editing: {project_path.parent}]")
+    typer.echo(f"  name: {project.name}")
+    typer.echo(f"  profile: {project.profile}")
+    typer.echo(f"  version: {project.version}")
+    if project.require_dbt_version:
+        typer.echo(f"  require-dbt-version: {project.require_dbt_version}")
+    typer.echo(f"  packages: {len(packages.packages)}")
+
+
+def _handle_settings_action(
+    action: SettingsAction,
+    project: DbtProject,
+    project_path: Path,
+) -> DbtProject:
+    """Handle settings menu action.
+
+    Args:
+        action: Selected action
+        project: Current project
+        project_path: Path to dbt_project.yml
+
+    Returns:
+        Updated project
+    """
+    from brix.modules.dbt.project.editor import save_project, update_project_field
+
+    if action == "back":
+        return project
+
+    # Handle require_dbt_version separately since it can be None
+    if action == "require_dbt_version":
+        new_value = prompt_edit_require_dbt_version(project.require_dbt_version)
+        if new_value != project.require_dbt_version:
+            try:
+                project = update_project_field(project, action, new_value)
+                save_project(project, project_path)
+                typer.echo("Updated require-dbt-version")
+            except Exception as e:
+                typer.echo(f"Error: {e}", err=True)
+        return project
+
+    # Handle other string fields
+    field_values: dict[str, str] = {
+        "name": project.name,
+        "profile": project.profile,
+        "version": project.version,
+    }
+    field_prompts = {
+        "name": prompt_edit_project_name,
+        "profile": prompt_edit_profile_name,
+        "version": prompt_edit_version,
+    }
+
+    if action not in field_values:
+        return project
+
+    current_value = field_values[action]
+    new_value = field_prompts[action](current_value)
+
+    if new_value is not None and new_value != current_value:
+        try:
+            project = update_project_field(project, action, new_value)
+            save_project(project, project_path)
+            typer.echo(f"Updated {action.replace('_', '-')}")
+        except Exception as e:
+            typer.echo(f"Error: {e}", err=True)
+
+    return project
+
+
+def _handle_package_action(  # noqa: C901
+    action: PackageAction,
+    packages: DbtPackages,
+    project_path: Path,
+) -> DbtPackages:
+    """Handle package menu action.
+
+    Args:
+        action: Selected action
+        packages: Current packages
+        project_path: Path to dbt_project.yml (for directory)
+
+    Returns:
+        Updated packages
+    """
+    from brix.modules.dbt.project.editor import (
+        PackageAlreadyExistsError,
+        PackageNotFoundError,
+        add_git_package,
+        add_hub_package,
+        add_local_package,
+        remove_package,
+        save_packages,
+        update_package_version,
+    )
+
+    if action == "add_hub":
+        details = prompt_add_hub_package_details()
+        if details:
+            package_name, version = details
+            try:
+                packages = add_hub_package(packages, package_name, version)
+                save_packages(packages, project_path)
+                typer.echo(f"Added package: {package_name} ({version})")
+            except PackageAlreadyExistsError as e:
+                typer.echo(str(e), err=True)
+
+    elif action == "add_git":
+        details = prompt_add_git_package_details()
+        if details:
+            git_url, revision, subdirectory = details
+            try:
+                packages = add_git_package(packages, git_url, revision, subdirectory)
+                save_packages(packages, project_path)
+                typer.echo(f"Added git package: {git_url}")
+            except PackageAlreadyExistsError as e:
+                typer.echo(str(e), err=True)
+
+    elif action == "add_local":
+        local_path = prompt_add_local_package_path()
+        if local_path:
+            try:
+                packages = add_local_package(packages, local_path)
+                save_packages(packages, project_path)
+                typer.echo(f"Added local package: {local_path}")
+            except PackageAlreadyExistsError as e:
+                typer.echo(str(e), err=True)
+
+    elif action == "remove":
+        identifier = prompt_select_package(packages)
+        if identifier and prompt_confirm_delete(f"package '{identifier}'"):
+            try:
+                packages = remove_package(packages, identifier)
+                save_packages(packages, project_path)
+                typer.echo(f"Removed package: {identifier}")
+            except PackageNotFoundError as e:
+                typer.echo(str(e), err=True)
+
+    elif action == "update_version":
+        identifier = prompt_select_package(packages)
+        if identifier:
+            # Find current version
+            from brix.modules.dbt.project.editor import find_package_index
+            from brix.modules.dbt.project.models import HubPackage as HubPkg
+
+            idx = find_package_index(packages, identifier)
+            if idx is not None:
+                pkg = packages.packages[idx]
+                if isinstance(pkg, HubPkg):
+                    new_version = prompt_new_package_version(pkg.version)
+                    if new_version and new_version != pkg.version:
+                        try:
+                            packages = update_package_version(packages, identifier, new_version)
+                            save_packages(packages, project_path)
+                            typer.echo(f"Updated {identifier} to {new_version}")
+                        except (PackageNotFoundError, ValueError) as e:
+                            typer.echo(str(e), err=True)
+                else:
+                    typer.echo("Can only update version for hub packages.", err=True)
+
+    return packages
+
+
+def _handle_path_action(  # noqa: C901
+    field: PathAction,
+    project: DbtProject,
+    project_path: Path,
+) -> DbtProject:
+    """Handle path field editing.
+
+    Args:
+        field: Path field to edit
+        project: Current project
+        project_path: Path to dbt_project.yml
+
+    Returns:
+        Updated project
+    """
+    from brix.modules.dbt.project.editor import save_project, update_path_field
+
+    if field == "back":
+        return project
+
+    current_paths: list[str] = getattr(project, field, [])
+
+    while True:
+        action = prompt_path_edit_action(field.replace("_", "-"), current_paths)
+
+        if action == "back":
+            break
+
+        if action == "view":
+            if current_paths:
+                typer.echo(f"\n{field.replace('_', '-')}:")
+                for p in current_paths:
+                    typer.echo(f"  - {p}")
+            else:
+                typer.echo(f"\n{field.replace('_', '-')}: (none)")
+            continue
+
+        if action == "add":
+            new_path = prompt_add_path(field.replace("_", "-"))
+            if new_path:
+                try:
+                    project = update_path_field(project, field, "add", new_path)
+                    save_project(project, project_path)
+                    current_paths = getattr(project, field, [])
+                    typer.echo(f"Added '{new_path}' to {field.replace('_', '-')}")
+
+                    # Offer to create directory
+                    full_path = project_path.parent / new_path
+                    if not full_path.exists() and prompt_create_directory(full_path):
+                        full_path.mkdir(parents=True, exist_ok=True)
+                        typer.echo(f"Created directory: {full_path}")
+                except Exception as e:
+                    typer.echo(f"Error: {e}", err=True)
+
+        elif action == "remove":
+            path_to_remove = prompt_remove_path(current_paths)
+            if path_to_remove:
+                try:
+                    project = update_path_field(project, field, "remove", path_to_remove)
+                    save_project(project, project_path)
+                    current_paths = getattr(project, field, [])
+                    typer.echo(f"Removed '{path_to_remove}' from {field.replace('_', '-')}")
+                except Exception as e:
+                    typer.echo(f"Error: {e}", err=True)
+
+    return project
+
+
+def _edit_settings_loop(project: DbtProject, project_path: Path) -> DbtProject:
+    """Settings editing submenu loop.
+
+    Args:
+        project: Current project
+        project_path: Path to dbt_project.yml
+
+    Returns:
+        Updated project
+    """
+    while True:
+        typer.echo(f"\n[Project Settings: {project.name}]")
+        typer.echo(f"  name: {project.name}")
+        typer.echo(f"  profile: {project.profile}")
+        typer.echo(f"  version: {project.version}")
+        typer.echo(f"  require-dbt-version: {project.require_dbt_version or '(not set)'}")
+
+        action = prompt_settings_action()
+        if action == "back":
+            break
+
+        project = _handle_settings_action(action, project, project_path)
+
+    return project
+
+
+def _edit_packages_loop(packages: DbtPackages, project_path: Path) -> DbtPackages:
+    """Packages editing submenu loop.
+
+    Args:
+        packages: Current packages
+        project_path: Path to dbt_project.yml
+
+    Returns:
+        Updated packages
+    """
+    from brix.modules.dbt.project.editor import get_package_display_info
+
+    while True:
+        typer.echo("\n[Packages]")
+        if packages.packages:
+            for ident, info in get_package_display_info(packages):
+                typer.echo(f"  - {ident} ({info})")
+        else:
+            typer.echo("  (no packages)")
+
+        action = prompt_package_action()
+        if action == "back":
+            break
+
+        packages = _handle_package_action(action, packages, project_path)
+
+    return packages
+
+
+def _edit_paths_loop(project: DbtProject, project_path: Path) -> DbtProject:
+    """Path configurations editing submenu loop.
+
+    Args:
+        project: Current project
+        project_path: Path to dbt_project.yml
+
+    Returns:
+        Updated project
+    """
+    while True:
+        typer.echo("\n[Path Configurations]")
+        typer.echo(f"  model-paths: {', '.join(project.model_paths)}")
+        typer.echo(f"  seed-paths: {', '.join(project.seed_paths)}")
+        typer.echo(f"  test-paths: {', '.join(project.test_paths)}")
+        typer.echo(f"  macro-paths: {', '.join(project.macro_paths)}")
+        typer.echo(f"  snapshot-paths: {', '.join(project.snapshot_paths)}")
+        typer.echo(f"  analysis-paths: {', '.join(project.analysis_paths)}")
+        typer.echo(f"  asset-paths: {', '.join(project.asset_paths)}")
+        typer.echo(f"  clean-targets: {', '.join(project.clean_targets)}")
+
+        field = prompt_path_field_action()
+        if field == "back":
+            break
+
+        project = _handle_path_action(field, project, project_path)
+
+    return project
+
+
+def run_interactive_edit(project_path: Path | None = None) -> None:
+    """Run the interactive project editor.
+
+    Main entry point for interactive project editing with nested loops.
+
+    Args:
+        project_path: Path to dbt_project.yml, discovers project if None
+    """
+    from brix.modules.dbt.project.editor import load_packages, load_project
+    from brix.modules.dbt.project.finder import discover_and_select_project
+
+    # Discover or use provided project
+    if project_path is None:
+        result = discover_and_select_project()
+        if result is None:
+            return
+        project_path, project = result
+    else:
+        try:
+            project = load_project(project_path)
+        except Exception as e:
+            typer.echo(f"Error loading project: {e}", err=True)
+            return
+
+    # Load packages
+    packages = load_packages(project_path)
+
+    typer.echo(f"Editing project at: {project_path.parent}")
+
+    try:
+        while True:
+            _display_project_status(project, packages, project_path)
+            action = prompt_edit_main_action()
+
+            if action == "exit":
+                typer.echo("Goodbye!")
+                break
+
+            if action == "edit_settings":
+                project = _edit_settings_loop(project, project_path)
+            elif action == "manage_packages":
+                packages = _edit_packages_loop(packages, project_path)
+            elif action == "edit_paths":
+                project = _edit_paths_loop(project, project_path)
+
+    except KeyboardInterrupt:
+        typer.echo("\nExiting...")

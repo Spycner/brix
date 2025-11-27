@@ -6,7 +6,7 @@ from typing import Annotated, Literal
 import typer
 
 from brix.modules.dbt.project.models import HubPackage, ProjectNameError
-from brix.modules.dbt.project.prompts import run_dbt_deps, run_interactive_init
+from brix.modules.dbt.project.prompts import run_dbt_deps, run_interactive_edit, run_interactive_init
 from brix.modules.dbt.project.service import (
     ProjectExistsError,
     get_package_version,
@@ -15,6 +15,21 @@ from brix.modules.dbt.project.service import (
 from brix.utils.logging import get_logger
 
 MaterializationType = Literal["view", "table", "ephemeral"]
+
+# Action types for CLI edit command
+EditActionType = Literal[
+    "set-name",
+    "set-profile",
+    "set-version",
+    "set-require-dbt-version",
+    "add-path",
+    "remove-path",
+    "add-hub-package",
+    "add-git-package",
+    "add-local-package",
+    "remove-package",
+    "update-package-version",
+]
 
 # Known package mappings for short names
 KNOWN_PACKAGES = {
@@ -242,5 +257,377 @@ def init(
         persist_docs=persist_docs,
         with_example=with_example,
         run_deps=run_deps,
+        force=force,
+    )
+
+
+def _cli_set_project_field(
+    project_path: Path,
+    field: str,
+    value: str | None,
+    required_msg: str,
+    success_msg: str,
+) -> None:
+    """Handle CLI set-* actions for project fields."""
+    from brix.modules.dbt.project.editor import (
+        InvalidFieldError,
+        ProjectNotFoundError,
+        load_project,
+        save_project,
+        update_project_field,
+    )
+
+    if not value:
+        typer.echo(required_msg, err=True)
+        raise typer.Exit(1)
+
+    try:
+        project = load_project(project_path)
+        project = update_project_field(project, field, value)
+        save_project(project, project_path)
+        typer.echo(success_msg.format(value=value))
+    except (ProjectNotFoundError, InvalidFieldError, ProjectNameError) as e:
+        typer.echo(str(e), err=True)
+        raise typer.Exit(1) from None
+
+
+def _cli_set_require_dbt_version(project_path: Path, value: str | None) -> None:
+    """Handle CLI set-require-dbt-version action."""
+    from brix.modules.dbt.project.editor import (
+        InvalidFieldError,
+        ProjectNotFoundError,
+        load_project,
+        save_project,
+        update_project_field,
+    )
+
+    try:
+        project = load_project(project_path)
+        project = update_project_field(project, "require_dbt_version", value or None)
+        save_project(project, project_path)
+        if value:
+            typer.echo(f"Updated require-dbt-version to '{value}'")
+        else:
+            typer.echo("Cleared require-dbt-version")
+    except (ProjectNotFoundError, InvalidFieldError) as e:
+        typer.echo(str(e), err=True)
+        raise typer.Exit(1) from None
+
+
+def _cli_path_action(
+    project_path: Path,
+    action: str,
+    path_field: str | None,
+    path_value: str | None,
+    create_dir: bool | None,
+) -> None:
+    """Handle CLI add-path/remove-path actions."""
+    from brix.modules.dbt.project.editor import (
+        InvalidFieldError,
+        ProjectNotFoundError,
+        load_project,
+        save_project,
+        update_path_field,
+    )
+
+    if not path_field or not path_value:
+        typer.echo(f"--path-field and --path are required for {action} action", err=True)
+        raise typer.Exit(1)
+
+    operation = "add" if action == "add-path" else "remove"
+    try:
+        project = load_project(project_path)
+        project = update_path_field(project, path_field, operation, path_value)
+        save_project(project, project_path)
+        verb = "Added" if operation == "add" else "Removed"
+        prep = "to" if operation == "add" else "from"
+        typer.echo(f"{verb} '{path_value}' {prep} {path_field}")
+
+        if operation == "add" and create_dir:
+            full_path = project_path.parent / path_value
+            if not full_path.exists():
+                full_path.mkdir(parents=True, exist_ok=True)
+                typer.echo(f"Created directory: {full_path}")
+    except (ProjectNotFoundError, InvalidFieldError, ValueError) as e:
+        typer.echo(str(e), err=True)
+        raise typer.Exit(1) from None
+
+
+def _cli_package_action(  # noqa: C901
+    project_path: Path,
+    action: EditActionType,
+    package: str | None,
+    package_version: str | None,
+    revision: str | None,
+    subdirectory: str | None,
+) -> None:
+    """Handle CLI package actions."""
+    from brix.modules.dbt.project.editor import (
+        PackageAlreadyExistsError,
+        PackageNotFoundError,
+        add_git_package,
+        add_hub_package,
+        add_local_package,
+        load_packages,
+        remove_package,
+        save_packages,
+        update_package_version,
+    )
+
+    if action == "add-hub-package":
+        if not package:
+            typer.echo("--package is required for add-hub-package action", err=True)
+            raise typer.Exit(1)
+        resolved = _resolve_package_name(package) if "/" not in package else package
+        ver = package_version or get_package_version(resolved)
+        try:
+            pkgs = load_packages(project_path)
+            pkgs = add_hub_package(pkgs, resolved, ver)
+            save_packages(pkgs, project_path)
+            typer.echo(f"Added hub package: {resolved} ({ver})")
+        except PackageAlreadyExistsError as e:
+            typer.echo(str(e), err=True)
+            raise typer.Exit(1) from None
+
+    elif action == "add-git-package":
+        if not package or not revision:
+            typer.echo("--package (git URL) and --revision required for add-git-package", err=True)
+            raise typer.Exit(1)
+        try:
+            pkgs = load_packages(project_path)
+            pkgs = add_git_package(pkgs, package, revision, subdirectory)
+            save_packages(pkgs, project_path)
+            typer.echo(f"Added git package: {package} ({revision})")
+        except PackageAlreadyExistsError as e:
+            typer.echo(str(e), err=True)
+            raise typer.Exit(1) from None
+
+    elif action == "add-local-package":
+        if not package:
+            typer.echo("--package (local path) is required for add-local-package action", err=True)
+            raise typer.Exit(1)
+        try:
+            pkgs = load_packages(project_path)
+            pkgs = add_local_package(pkgs, package)
+            save_packages(pkgs, project_path)
+            typer.echo(f"Added local package: {package}")
+        except PackageAlreadyExistsError as e:
+            typer.echo(str(e), err=True)
+            raise typer.Exit(1) from None
+
+    elif action == "remove-package":
+        if not package:
+            typer.echo("--package is required for remove-package action", err=True)
+            raise typer.Exit(1)
+        try:
+            pkgs = load_packages(project_path)
+            pkgs = remove_package(pkgs, package)
+            save_packages(pkgs, project_path)
+            typer.echo(f"Removed package: {package}")
+        except PackageNotFoundError as e:
+            typer.echo(str(e), err=True)
+            raise typer.Exit(1) from None
+
+    elif action == "update-package-version":
+        if not package or not package_version:
+            typer.echo("--package and --package-version required for update-package-version", err=True)
+            raise typer.Exit(1)
+        try:
+            pkgs = load_packages(project_path)
+            pkgs = update_package_version(pkgs, package, package_version)
+            save_packages(pkgs, project_path)
+            typer.echo(f"Updated {package} to version {package_version}")
+        except (PackageNotFoundError, ValueError) as e:
+            typer.echo(str(e), err=True)
+            raise typer.Exit(1) from None
+
+
+def _run_cli_edit_action(
+    action: EditActionType,
+    project_path: Path,
+    name: str | None,
+    profile_name: str | None,
+    version: str | None,
+    require_dbt_version: str | None,
+    path_field: str | None,
+    path_value: str | None,
+    create_dir: bool | None,
+    package: str | None,
+    package_version: str | None,
+    revision: str | None,
+    subdirectory: str | None,
+    force: bool,
+) -> None:
+    """Execute a CLI edit action."""
+    logger = get_logger()
+
+    if action == "set-name":
+        _cli_set_project_field(
+            project_path,
+            "name",
+            name,
+            "--name is required for set-name action",
+            "Updated project name to '{value}'",
+        )
+    elif action == "set-profile":
+        _cli_set_project_field(
+            project_path,
+            "profile",
+            profile_name,
+            "--profile is required for set-profile action",
+            "Updated profile to '{value}'",
+        )
+    elif action == "set-version":
+        _cli_set_project_field(
+            project_path,
+            "version",
+            version,
+            "--version is required for set-version action",
+            "Updated version to '{value}'",
+        )
+    elif action == "set-require-dbt-version":
+        _cli_set_require_dbt_version(project_path, require_dbt_version)
+    elif action in ("add-path", "remove-path"):
+        _cli_path_action(project_path, action, path_field, path_value, create_dir)
+    else:
+        _cli_package_action(project_path, action, package, package_version, revision, subdirectory)
+
+    logger.debug("Completed action: %s", action)
+
+
+@app.command()
+def edit(
+    # Project selection
+    project_path: Annotated[
+        Path | None,
+        typer.Option(
+            "--project-path",
+            "-P",
+            help="Path to dbt_project.yml (interactive selection if not provided)",
+        ),
+    ] = None,
+    # Action specification
+    action: Annotated[
+        EditActionType | None,
+        typer.Option(
+            "--action",
+            "-a",
+            help="Action to perform (interactive if not provided)",
+        ),
+    ] = None,
+    # Project settings
+    name: Annotated[
+        str | None,
+        typer.Option("--name", help="New project name (for set-name action)"),
+    ] = None,
+    profile_name: Annotated[
+        str | None,
+        typer.Option("--profile", help="New profile name (for set-profile action)"),
+    ] = None,
+    version: Annotated[
+        str | None,
+        typer.Option("--version", "-v", help="New project version (for set-version action)"),
+    ] = None,
+    require_dbt_version: Annotated[
+        str | None,
+        typer.Option("--require-dbt-version", help="dbt version constraint"),
+    ] = None,
+    # Path field operations
+    path_field: Annotated[
+        str | None,
+        typer.Option(
+            "--path-field",
+            help="Path field to modify (model-paths, seed-paths, etc.)",
+        ),
+    ] = None,
+    path_value: Annotated[
+        str | None,
+        typer.Option("--path", help="Path value to add/remove"),
+    ] = None,
+    create_dir: Annotated[
+        bool | None,
+        typer.Option(
+            "--create-dir/--no-create-dir",
+            help="Create directory when adding path",
+        ),
+    ] = None,
+    # Package operations
+    package: Annotated[
+        str | None,
+        typer.Option("--package", help="Package name (hub: org/name, git: URL, local: path)"),
+    ] = None,
+    package_version: Annotated[
+        str | None,
+        typer.Option("--package-version", help="Package version specifier"),
+    ] = None,
+    revision: Annotated[
+        str | None,
+        typer.Option("--revision", help="Git revision (branch, tag, commit)"),
+    ] = None,
+    subdirectory: Annotated[
+        str | None,
+        typer.Option("--subdirectory", help="Subdirectory within git repo"),
+    ] = None,
+    # Flags
+    force: Annotated[
+        bool,
+        typer.Option("--force", "-f", help="Skip confirmations"),
+    ] = False,
+) -> None:
+    r"""Edit dbt project configuration.
+
+    Without --action, launches interactive editor with project discovery.
+    With --action, performs the specified action non-interactively.
+
+    Examples:
+        # Interactive mode with project discovery
+        brix dbt project edit
+
+        # Interactive mode for specific project
+        brix dbt project edit -P ./my_project/dbt_project.yml
+
+        # CLI: Update project name
+        brix dbt project edit -P ./proj/dbt_project.yml --action set-name --name new_name
+
+        # CLI: Add hub package
+        brix dbt project edit -P ./proj/dbt_project.yml --action add-hub-package \
+            --package dbt-labs/dbt_utils --package-version ">=1.0.0"
+
+        # CLI: Add path with directory creation
+        brix dbt project edit -P ./proj/dbt_project.yml --action add-path \
+            --path-field model-paths --path staging --create-dir
+
+        # CLI: Remove a package
+        brix dbt project edit -P ./proj/dbt_project.yml --action remove-package \
+            --package dbt-labs/dbt_utils
+    """
+    if action is None:
+        # Interactive mode
+        run_interactive_edit(project_path)
+        return
+
+    # CLI mode - project_path is required
+    if project_path is None:
+        typer.echo("--project-path is required in CLI mode", err=True)
+        raise typer.Exit(1)
+
+    if not project_path.exists():
+        typer.echo(f"Project file not found: {project_path}", err=True)
+        raise typer.Exit(1)
+
+    _run_cli_edit_action(
+        action=action,
+        project_path=project_path,
+        name=name,
+        profile_name=profile_name,
+        version=version,
+        require_dbt_version=require_dbt_version,
+        path_field=path_field,
+        path_value=path_value,
+        create_dir=create_dir,
+        package=package,
+        package_version=package_version,
+        revision=revision,
+        subdirectory=subdirectory,
         force=force,
     )
