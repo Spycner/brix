@@ -1,6 +1,6 @@
 [project]
 name = "brix"
-version = "1.0.0"
+version = "1.0.1"
 description = "Add your description here"
 readme = "README.md"
 license = "MIT"
@@ -123,6 +123,8 @@ version_toml = ["pyproject.toml:project.version"]
 branch = "main"
 commit_message = "chore(release): {version}"
 build_command = "uv build"
+upload_to_vcs_release = true
+dist_glob_patterns = ["dist/*"]
 
 [tool.semantic_release.changelog.default_templates]
 changelog_file = "CHANGELOG.md"
