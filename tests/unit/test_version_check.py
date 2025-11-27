@@ -4,7 +4,6 @@ from datetime import datetime, timedelta, timezone
 from unittest.mock import patch
 
 import httpx
-import pytest
 import respx
 
 from brix import version_check
@@ -17,16 +16,6 @@ from brix.version_check import (
     _should_refresh,
     check_for_updates,
 )
-
-
-@pytest.fixture
-def temp_cache_dir(tmp_path, monkeypatch):
-    """Use temporary directory for cache."""
-    cache_dir = tmp_path / ".cache" / "brix"
-    cache_file = cache_dir / "version_check.json"
-    monkeypatch.setattr(version_check, "CACHE_DIR", cache_dir)
-    monkeypatch.setattr(version_check, "CACHE_FILE", cache_file)
-    return cache_file
 
 
 class TestVersionCache:

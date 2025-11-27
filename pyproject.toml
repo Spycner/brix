@@ -24,6 +24,8 @@ build-backend = "hatchling.build"
 
 [dependency-groups]
 dev = [
+    "dbt-core>=1.9.0",
+    "dbt-duckdb>=1.9.0",
     "poethepoet>=0.38.0",
     "pre-commit>=4.5.0",
     "pytest>=9.0.1",
@@ -73,7 +75,7 @@ unfixable = ["B"]
 
 [tool.ruff.lint.per-file-ignores]
 "__init__.py" = ["E402"]
-"test/*" = ["S101", "ANN", "D"]
+"tests/*" = ["S101", "ANN", "D"]
 
 [tool.ruff.lint.pydocstyle]
 convention = "google"
@@ -97,7 +99,7 @@ python-version = "3.10"
 exclude = [".git", "dist"]
 
 [[tool.ty.overrides]]
-include = ["test/**"]
+include = ["tests/**"]
 
 [tool.ty.overrides.rules]
 possibly-unresolved-reference = "ignore"
@@ -106,11 +108,19 @@ possibly-unresolved-reference = "ignore"
 source = ["src"]
 branch = true
 
+[tool.pytest.ini_options]
+testpaths = ["tests"]
+markers = [
+    "integration: marks tests as integration tests (deselect with '-m \"not integration\"')",
+]
+
 [tool.poe.tasks]
 lint = "ruff check ."
 format = "ruff format ."
 typecheck = "ty check"
 test = "pytest"
+test-unit = "pytest tests/unit"
+test-integration = "pytest tests/integration -m integration"
 check = ["lint", "typecheck"]
 
 [tool.semantic_release]

@@ -4,7 +4,6 @@ import json
 import logging
 from unittest.mock import patch
 
-import pytest
 from typer.testing import CliRunner
 
 from brix.main import app
@@ -14,17 +13,8 @@ from brix.utils.logging import (
     LogConfig,
     LogLevel,
     get_logger,
-    reset_logger,
     setup_logging,
 )
-
-
-@pytest.fixture(autouse=True)
-def reset_logger_fixture():
-    """Reset logger before and after each test."""
-    reset_logger()
-    yield
-    reset_logger()
 
 
 class TestLogLevel:
