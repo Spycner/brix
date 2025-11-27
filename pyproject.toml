@@ -4,9 +4,7 @@ version = "1.0.0"
 description = "Add your description here"
 readme = "README.md"
 license = "MIT"
-authors = [
-    { name = "Kraus, Pascal", email = "pascal.kraus@outlook.com" }
-]
+authors = [{ name = "Kraus, Pascal", email = "pascal.kraus@outlook.com" }]
 requires-python = ">=3.10"
 dependencies = [
     "httpx>=0.28.1",
@@ -38,37 +36,32 @@ dev = [
 
 [tool.ruff]
 target-version = "py310"
-exclude = [
-    ".git",
-    "dist",
-]
+exclude = [".git", "dist"]
 
 line-length = 120
 indent-width = 4
 
 [tool.ruff.lint]
 select = [
-    "E", # PEP8 code-style
-    "N", # naming conventions
-    "F", # pyflakes
-    "I", # isort
-    "B", # bugbear
-    "S", # security issues
-    "UP", # pyupgrade
+    "E",   # PEP8 code-style
+    "N",   # naming conventions
+    "F",   # pyflakes
+    "I",   # isort
+    "B",   # bugbear
+    "S",   # security issues
+    "UP",  # pyupgrade
     "C90", # function complexity check
     "PTH", # pythlib nagger
     "SIM", # simplifications
-    "D", # pydocstyle
-    "PT", # pytest pyflakes
+    "D",   # pydocstyle
+    "PT",  # pytest pyflakes
     "ANN", # enforce type hints
     "RUF", # ruff rules
     "T20", # flag prints
-    "C4", # comprehensions
-    "W", # pycodestyle warnings
+    "C4",  # comprehensions
+    "W",   # pycodestyle warnings
 ]
-ignore = [
-    "E501"
-]
+ignore = ["E501"]
 
 fixable = ["ALL"]
 unfixable = ["B"]
@@ -122,6 +115,7 @@ test = "pytest"
 test-unit = "pytest tests/unit"
 test-integration = "pytest tests/integration -m integration"
 check = ["lint", "typecheck"]
+pre-commit = "pre-commit run --all-files"
 
 [tool.semantic_release]
 version_toml = ["pyproject.toml:project.version"]
