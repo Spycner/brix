@@ -1,0 +1,23 @@
+packages:
+  - package: dbt-labs/dbt_utils
+    version: ">=1.0.0"
+
+# ============================================
+# Package Examples (uncomment to use)
+# ============================================
+
+# Hub packages (from hub.getdbt.com):
+# - package: elementary-data/elementary
+#   version: ">=0.13.0"
+# - package: dbt-labs/codegen
+#   version: ">=0.12.0"
+# - package: calogica/dbt_expectations
+#   version: ">=0.10.0"
+
+# Git packages (any git repository):
+# - git: "https://github.com/org/repo.git"
+#   revision: main  # branch, tag, or commit hash
+#   subdirectory: "path/to/dbt_project"  # optional, if not at root
+
+# Local packages (filesystem path):
+# - local: ../shared_macros
