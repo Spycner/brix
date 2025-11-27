@@ -17,7 +17,7 @@ repos:
 
       - id: pytest
         name: pytest
-        entry: uv run pytest --cov --cov-report=xml
+        entry: uv run pytest 
         language: system
         types: [python]
         pass_filenames: false
