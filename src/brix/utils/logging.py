@@ -58,7 +58,7 @@ class LogConfig(BaseSettings):
         case_sensitive=False,
     )
 
-    log: Literal["TRACE", "DEBUG", "INFO", "WARN", "ERROR", "OFF"] = "OFF"
+    log: Literal["TRACE", "DEBUG", "INFO", "WARN", "ERROR", "OFF"] = "ERROR"
     log_path: Path | None = None
     log_json: bool = False
 

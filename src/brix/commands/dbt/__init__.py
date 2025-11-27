@@ -4,6 +4,7 @@ import click
 import typer
 from typer.core import TyperGroup
 
+from brix.commands.dbt.profile import app as profile_app
 from brix.modules.dbt import run_dbt
 
 
@@ -40,6 +41,7 @@ app = typer.Typer(
     invoke_without_command=True,
     context_settings={"allow_extra_args": True, "ignore_unknown_options": True, "help_option_names": ["-h", "--help"]},
 )
+app.add_typer(profile_app, name="profile")
 
 
 @app.callback()

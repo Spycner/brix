@@ -28,8 +28,6 @@ Run the CLI: `uv run brix --help`
 uv run pre-commit run --all-files
 ```
 
-This runs ruff linting, ruff formatting, type checking, and tests. The CI will fail if formatting is not applied.
-
 ## Code Style
 
 - Python 3.10+, strict type hints required (ANN rules enforced)
@@ -38,19 +36,33 @@ This runs ruff linting, ruff formatting, type checking, and tests. The CI will f
 - Ruff handles linting and formatting
 - ty for type checking (src-layout aware via `tool.ty.environment.root`)
 
-## Project Structure
-
-- `src/brix/` - Main package (src-layout)
-- `tests/unit/` - Unit tests (mocked, isolated)
-- `tests/integration/` - Integration tests (require dbt, marked with `@pytest.mark.integration`)
-- `tests/fixtures/` - Test fixtures (e.g., minimal dbt project for integration tests)
-
 ## Architecture
 
-**CLI Entry Point** (`main.py`): Typer-based CLI with global callback pattern. Global options (--version, --log-level, --log-path, --log-json) are processed before subcommands. Add new commands via `@app.command()` decorators.
+### Layer Separation
 
-**Logging System** (`utils/logging.py`): Terraform-style logging with environment variables (`BRIX_LOG`, `BRIX_LOG_PATH`, `BRIX_LOG_JSON`) and CLI flag overrides. Uses thread-safe singleton pattern. Call `get_logger()` from any module to access the logger.
+```
+commands/          CLI layer (Typer) - argument parsing, output, errors
+    └── dbt/
+        └── profile.py
+modules/           Business logic layer - reusable, CLI-independent
+    └── dbt/
+        └── profile/
+            ├── service.py   # Core operations, configuration
+            ├── editor.py    # CRUD operations
+            ├── models.py    # Pydantic models
+            └── prompts.py   # Interactive questionary prompts
+```
 
-**Configuration Pattern**: Uses `pydantic-settings` for env var parsing with `BRIX_` prefix. CLI arguments override environment variables.
+### Key Patterns
 
-**Version Checking** (`version_check.py`): Non-blocking update checker using background threads. Caches results to `~/.cache/brix/` with 24-hour TTL.
+**dbt Passthrough**: Custom `DbtGroup` class in `commands/dbt/__init__.py` intercepts unknown commands and passes them to the dbt CLI. This allows `brix dbt run` to execute `dbt run` while `brix dbt profile` is handled by brix.
+
+**Profile Models** (`modules/dbt/profile/models.py`): Pydantic models with discriminated unions for adapter types (DuckDB, Databricks). `DbtProfiles` provides YAML serialization via `from_yaml()`/`to_yaml()`.
+
+**Template System** (`templates/`): Bundled files loaded via `importlib.resources`. Use `get_template(name)` to load content.
+
+**Configuration**: Uses `pydantic-settings` with `BRIX_` prefix (e.g., `BRIX_DBT_PROFILE_PATH`). CLI arguments override environment variables.
+
+**Logging** (`utils/logging.py`): Terraform-style with env vars (`BRIX_LOG`, `BRIX_LOG_PATH`, `BRIX_LOG_JSON`). Thread-safe singleton; use `get_logger()` from any module.
+
+**Version Checking** (`version_check.py`): Non-blocking background thread with 24-hour cache in `~/.cache/brix/`.

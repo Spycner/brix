@@ -35,7 +35,7 @@ class TestLogConfig:
     def test_defaults(self):
         with patch.dict("os.environ", {}, clear=True):
             config = LogConfig()
-            assert config.log == "OFF"
+            assert config.log == "ERROR"
             assert config.log_path is None
             assert config.log_json is False
 
@@ -143,12 +143,12 @@ class TestBrixJsonFormatter:
 
 
 class TestSetupLogging:
-    def test_default_off(self):
+    def test_default_error(self):
         with patch.dict("os.environ", {}, clear=True):
             logger = setup_logging()
-            assert logger.level == LogLevel.OFF
+            assert logger.level == LogLevel.ERROR
             assert len(logger.handlers) == 1
-            assert isinstance(logger.handlers[0], logging.NullHandler)
+            assert isinstance(logger.handlers[0], logging.StreamHandler)
 
     def test_cli_overrides_env(self):
         with patch.dict("os.environ", {"BRIX_LOG": "ERROR"}):

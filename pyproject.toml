@@ -4,14 +4,13 @@ version = "1.0.1"
 description = "Add your description here"
 readme = "README.md"
 license = "MIT"
-authors = [
-    { name = "Kraus, Pascal", email = "pascal.kraus@outlook.com" }
-]
+authors = [{ name = "Kraus, Pascal", email = "pascal.kraus@outlook.com" }]
 requires-python = ">=3.10"
 dependencies = [
     "httpx>=0.28.1",
     "pydantic>=2.12.5",
     "pydantic-settings>=2.12.0",
+    "questionary>=2.1.1",
     "typer>=0.20.0",
 ]
 
@@ -25,6 +24,7 @@ build-backend = "hatchling.build"
 [dependency-groups]
 dev = [
     "dbt-core>=1.9.0",
+    "dbt-databricks>=1.11.0",
     "dbt-duckdb>=1.9.0",
     "poethepoet>=0.38.0",
     "pre-commit>=4.5.0",
@@ -38,37 +38,32 @@ dev = [
 
 [tool.ruff]
 target-version = "py310"
-exclude = [
-    ".git",
-    "dist",
-]
+exclude = [".git", "dist"]
 
 line-length = 120
 indent-width = 4
 
 [tool.ruff.lint]
 select = [
-    "E", # PEP8 code-style
-    "N", # naming conventions
-    "F", # pyflakes
-    "I", # isort
-    "B", # bugbear
-    "S", # security issues
-    "UP", # pyupgrade
+    "E",   # PEP8 code-style
+    "N",   # naming conventions
+    "F",   # pyflakes
+    "I",   # isort
+    "B",   # bugbear
+    "S",   # security issues
+    "UP",  # pyupgrade
     "C90", # function complexity check
     "PTH", # pythlib nagger
     "SIM", # simplifications
-    "D", # pydocstyle
-    "PT", # pytest pyflakes
+    "D",   # pydocstyle
+    "PT",  # pytest pyflakes
     "ANN", # enforce type hints
     "RUF", # ruff rules
     "T20", # flag prints
-    "C4", # comprehensions
-    "W", # pycodestyle warnings
+    "C4",  # comprehensions
+    "W",   # pycodestyle warnings
 ]
-ignore = [
-    "E501"
-]
+ignore = ["E501"]
 
 fixable = ["ALL"]
 unfixable = ["B"]
@@ -122,6 +117,7 @@ test = "pytest"
 test-unit = "pytest tests/unit"
 test-integration = "pytest tests/integration -m integration"
 check = ["lint", "typecheck"]
+pre-commit = "pre-commit run --all-files"
 
 [tool.semantic_release]
 version_toml = ["pyproject.toml:project.version"]
