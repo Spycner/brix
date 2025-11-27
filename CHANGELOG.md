@@ -2,6 +2,19 @@
 
 <!-- version list -->
 
+## v1.1.0 (2025-11-27)
+
+### Features
+
+- Enhance dbt profile management with Databricks support and output configuration updates
+  ([`3da9c3e`](https://github.com/Spycner/brix/commit/3da9c3e3a5a04acfcfb626a7aaa503f6ff998830))
+
+### Refactoring
+
+- Update documentation structure and enhance architecture details
+  ([`d9c7137`](https://github.com/Spycner/brix/commit/d9c71375754c048431aef3cd440598c3c8c22b66))
+
+
 ## v1.0.1 (2025-11-27)
 
 ### Bug Fixes
