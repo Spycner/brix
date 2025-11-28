@@ -14,6 +14,16 @@ dependencies = [
     "typer>=0.20.0",
 ]
 
+[project.optional-dependencies]
+docs = [
+    "mkdocs>=1.6",
+    "mkdocs-material>=9.5",
+    "mkdocstrings[python]>=0.27",
+    "mkdocs-gen-files>=0.5",
+    "mkdocs-literate-nav>=0.6",
+    "mkdocs-section-index>=0.3",
+]
+
 [project.scripts]
 brix = "brix.main:app"
 
@@ -120,6 +130,9 @@ test-integration = "pytest tests/integration -m integration"
 test-e2e = "pytest tests/e2e -m e2e"
 check = ["lint", "typecheck"]
 pre-commit = "pre-commit run --all-files"
+docs-serve = "mkdocs serve"
+docs-build = "mkdocs build"
+docs-deploy = "mkdocs gh-deploy"
 
 [tool.semantic_release]
 version_toml = ["pyproject.toml:project.version"]
