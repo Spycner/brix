@@ -153,6 +153,36 @@ def get_package_version(package: str) -> str:
     return DEFAULT_PACKAGE_VERSIONS.get(package, ">=0.1.0")
 
 
+def fetch_package_versions_parallel(pkg_names: list[str], max_workers: int = 5) -> dict[str, str]:
+    """Fetch multiple package versions in parallel.
+
+    Args:
+        pkg_names: List of package names (e.g., ["dbt-labs/dbt_utils", "elementary-data/elementary"])
+        max_workers: Maximum number of concurrent threads
+
+    Returns:
+        Dictionary mapping package names to version strings
+    """
+    from concurrent.futures import ThreadPoolExecutor, as_completed
+
+    logger = get_logger()
+    results: dict[str, str] = {}
+
+    logger.debug("Fetching %d package versions in parallel", len(pkg_names))
+
+    with ThreadPoolExecutor(max_workers=max_workers) as executor:
+        futures = {executor.submit(get_package_version, pkg): pkg for pkg in pkg_names}
+        for future in as_completed(futures):
+            pkg_name = futures[future]
+            try:
+                results[pkg_name] = future.result()
+            except Exception as e:
+                logger.debug("Failed to fetch version for %s: %s", pkg_name, e)
+                results[pkg_name] = DEFAULT_PACKAGE_VERSIONS.get(pkg_name, ">=0.1.0")
+
+    return results
+
+
 def create_project_structure(
     project_path: Path,
     project_name: str,

@@ -16,9 +16,16 @@ from pydantic import BaseModel, ConfigDict, Field, field_validator
 # Project name validation regex - must start with letter/underscore, contain only alphanumeric/underscore
 PROJECT_NAME_PATTERN = re.compile(r"^[a-zA-Z_][a-zA-Z0-9_]*$")
 
+# Hub package name validation regex - must be namespace/name format
+HUB_PACKAGE_PATTERN = re.compile(r"^[a-zA-Z0-9_-]+/[a-zA-Z0-9_-]+$")
+
 
 class ProjectNameError(ValueError):
     """Raised when project name is invalid."""
+
+
+class PackageNameError(ValueError):
+    """Raised when package name is invalid."""
 
 
 def validate_project_name(name: str) -> str:
@@ -40,6 +47,28 @@ def validate_project_name(name: str) -> str:
             "alphanumeric characters and underscores."
         )
         raise ProjectNameError(msg)
+    return name
+
+
+def validate_hub_package_name(name: str) -> str:
+    """Validate a dbt hub package name.
+
+    Args:
+        name: Package name to validate (e.g., "dbt-labs/dbt_utils")
+
+    Returns:
+        The validated package name
+
+    Raises:
+        PackageNameError: If name doesn't match hub package format
+    """
+    if not HUB_PACKAGE_PATTERN.match(name):
+        msg = (
+            f"Invalid hub package name: '{name}'. "
+            "Package name must be in 'namespace/package' format "
+            "(e.g., 'dbt-labs/dbt_utils')."
+        )
+        raise PackageNameError(msg)
     return name
 
 
@@ -152,6 +181,12 @@ class HubPackage(BaseModel):
 
     package: str
     version: str
+
+    @field_validator("package", mode="after")
+    @classmethod
+    def validate_package_name(cls, v: str) -> str:
+        """Validate package name follows hub format."""
+        return validate_hub_package_name(v)
 
 
 class GitPackage(BaseModel):

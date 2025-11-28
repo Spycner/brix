@@ -89,3 +89,155 @@ class TestBrixDuckDbWorkflow:
 
         # 5. Validate target directory was created (dbt ran successfully)
         assert (project_dir / "target").exists(), "target directory was not created by dbt run"
+
+
+@pytest.mark.e2e
+class TestProjectWithPackages:
+    """E2E tests for project creation with packages."""
+
+    def test_project_init_with_packages(self, tmp_path):
+        """Test creating a project with packages (tests parallel fetching)."""
+        # Create project with packages
+        result = runner.invoke(
+            app,
+            [
+                "dbt",
+                "project",
+                "init",
+                "-n",
+                "pkg_test_project",
+                "-p",
+                "default",
+                "-b",
+                str(tmp_path),
+                "--packages",
+                "dbt-labs/dbt_utils",
+                "--packages",
+                "dbt-labs/codegen",
+            ],
+        )
+        assert result.exit_code == 0, f"project init failed: {result.output}"
+        assert "Fetching package versions" in result.output
+
+        project_dir = tmp_path / "pkg_test_project"
+        assert project_dir.exists(), "Project directory was not created"
+
+        # Verify packages.yml was created with packages
+        packages_yml = project_dir / "packages.yml"
+        assert packages_yml.exists(), "packages.yml was not created"
+        packages_content = packages_yml.read_text()
+        assert "dbt-labs/dbt_utils" in packages_content
+        assert "dbt-labs/codegen" in packages_content
+
+    def test_project_init_invalid_package_name(self, tmp_path):
+        """Test that invalid package names are rejected."""
+        result = runner.invoke(
+            app,
+            [
+                "dbt",
+                "project",
+                "init",
+                "-n",
+                "invalid_pkg_project",
+                "-p",
+                "default",
+                "-b",
+                str(tmp_path),
+                "--packages",
+                "invalid-package-name",  # Missing namespace/
+            ],
+        )
+        assert result.exit_code == 1, "Should fail with invalid package name"
+        assert "Invalid hub package name" in result.output
+
+
+@pytest.mark.e2e
+class TestProjectEdit:
+    """E2E tests for project editing."""
+
+    def test_project_edit_add_hub_package(self, tmp_path):
+        """Test adding a hub package to an existing project."""
+        # Create initial project without packages
+        result = runner.invoke(
+            app,
+            [
+                "dbt",
+                "project",
+                "init",
+                "-n",
+                "edit_test_project",
+                "-p",
+                "default",
+                "-b",
+                str(tmp_path),
+                "--no-packages",
+            ],
+        )
+        assert result.exit_code == 0, f"project init failed: {result.output}"
+
+        project_dir = tmp_path / "edit_test_project"
+        project_yml = project_dir / "dbt_project.yml"
+
+        # Add a package using edit command
+        result = runner.invoke(
+            app,
+            [
+                "dbt",
+                "project",
+                "edit",
+                "-p",
+                str(project_yml),
+                "--action",
+                "add-hub-package",
+                "--package",
+                "dbt-labs/dbt_utils",
+            ],
+        )
+        assert result.exit_code == 0, f"project edit failed: {result.output}"
+        assert "Added hub package" in result.output
+
+        # Verify packages.yml was created/updated
+        packages_yml = project_dir / "packages.yml"
+        assert packages_yml.exists(), "packages.yml was not created"
+        packages_content = packages_yml.read_text()
+        assert "dbt-labs/dbt_utils" in packages_content
+
+    def test_project_edit_invalid_package_name(self, tmp_path):
+        """Test that edit rejects invalid package names."""
+        # Create initial project
+        result = runner.invoke(
+            app,
+            [
+                "dbt",
+                "project",
+                "init",
+                "-n",
+                "edit_invalid_project",
+                "-p",
+                "default",
+                "-b",
+                str(tmp_path),
+                "--no-packages",
+            ],
+        )
+        assert result.exit_code == 0, f"project init failed: {result.output}"
+
+        project_yml = tmp_path / "edit_invalid_project" / "dbt_project.yml"
+
+        # Try to add invalid package
+        result = runner.invoke(
+            app,
+            [
+                "dbt",
+                "project",
+                "edit",
+                "-p",
+                str(project_yml),
+                "--action",
+                "add-hub-package",
+                "--package",
+                "not-valid-format",
+            ],
+        )
+        assert result.exit_code == 1, "Should fail with invalid package name"
+        assert "Invalid hub package name" in result.output

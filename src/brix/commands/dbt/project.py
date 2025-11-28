@@ -5,10 +5,11 @@ from typing import Annotated, Literal
 
 import typer
 
-from brix.modules.dbt.project.models import HubPackage, ProjectNameError
+from brix.modules.dbt.project.models import HubPackage, PackageNameError, ProjectNameError, validate_hub_package_name
 from brix.modules.dbt.project.prompts import run_dbt_deps, run_interactive_edit, run_interactive_init
 from brix.modules.dbt.project.service import (
     ProjectExistsError,
+    fetch_package_versions_parallel,
     get_package_version,
     init_project,
 )
@@ -50,8 +51,20 @@ app = typer.Typer(
 
 
 def _resolve_package_name(short_name: str) -> str:
-    """Resolve short package name to full namespace/name format."""
-    return KNOWN_PACKAGES.get(short_name, short_name)
+    """Resolve short package name to full namespace/name format.
+
+    Args:
+        short_name: Short or full package name
+
+    Returns:
+        Full package name in namespace/name format
+
+    Raises:
+        PackageNameError: If resolved name is not valid hub format
+    """
+    resolved = KNOWN_PACKAGES.get(short_name, short_name)
+    validate_hub_package_name(resolved)
+    return resolved
 
 
 def _build_package_list(packages: list[str] | None) -> list[HubPackage]:
@@ -60,13 +73,16 @@ def _build_package_list(packages: list[str] | None) -> list[HubPackage]:
     if packages:
         for pkg in packages:
             resolved = _resolve_package_name(pkg) if "/" not in pkg else pkg
+            validate_hub_package_name(resolved)
             if resolved not in pkg_names:
                 pkg_names.append(resolved)
 
     typer.echo("Fetching package versions...")
+    versions = fetch_package_versions_parallel(pkg_names)
+
     pkg_list = []
     for pkg_name in pkg_names:
-        version = get_package_version(pkg_name)
+        version = versions[pkg_name]
         pkg_list.append(HubPackage(package=pkg_name, version=version))
         typer.echo(f"  {pkg_name}: {version}")
     return pkg_list
@@ -88,9 +104,8 @@ def _run_cli_init(
     """Run project initialization in CLI mode."""
     logger = get_logger()
 
-    pkg_list = None if no_packages else _build_package_list(packages)
-
     try:
+        pkg_list = None if no_packages else _build_package_list(packages)
         result = init_project(
             project_name=project_name,
             profile_name=profile,
@@ -120,6 +135,10 @@ def _run_cli_init(
         raise typer.Exit(1) from None
     except ProjectNameError as e:
         logger.debug("Project name error", exc_info=e)
+        typer.echo(str(e), err=True)
+        raise typer.Exit(1) from None
+    except PackageNameError as e:
+        logger.debug("Package name error", exc_info=e)
         typer.echo(str(e), err=True)
         raise typer.Exit(1) from None
     except ValueError as e:
@@ -378,13 +397,17 @@ def _cli_package_action(  # noqa: C901
         if not package:
             typer.echo("--package is required for add-hub-package action", err=True)
             raise typer.Exit(1)
-        resolved = _resolve_package_name(package) if "/" not in package else package
-        ver = package_version or get_package_version(resolved)
         try:
+            resolved = _resolve_package_name(package) if "/" not in package else package
+            validate_hub_package_name(resolved)
+            ver = package_version or get_package_version(resolved)
             pkgs = load_packages(project_path)
             pkgs = add_hub_package(pkgs, resolved, ver)
             save_packages(pkgs, project_path)
             typer.echo(f"Added hub package: {resolved} ({ver})")
+        except PackageNameError as e:
+            typer.echo(str(e), err=True)
+            raise typer.Exit(1) from None
         except PackageAlreadyExistsError as e:
             typer.echo(str(e), err=True)
             raise typer.Exit(1) from None
@@ -501,8 +524,8 @@ def edit(
     project_path: Annotated[
         Path | None,
         typer.Option(
-            "--project-path",
-            "-P",
+            "--project",
+            "-p",
             help="Path to dbt_project.yml (interactive selection if not provided)",
         ),
     ] = None,
@@ -584,21 +607,21 @@ def edit(
         brix dbt project edit
 
         # Interactive mode for specific project
-        brix dbt project edit -P ./my_project/dbt_project.yml
+        brix dbt project edit -p ./my_project/dbt_project.yml
 
         # CLI: Update project name
-        brix dbt project edit -P ./proj/dbt_project.yml --action set-name --name new_name
+        brix dbt project edit -p ./proj/dbt_project.yml --action set-name --name new_name
 
         # CLI: Add hub package
-        brix dbt project edit -P ./proj/dbt_project.yml --action add-hub-package \
+        brix dbt project edit -p ./proj/dbt_project.yml --action add-hub-package \
             --package dbt-labs/dbt_utils --package-version ">=1.0.0"
 
         # CLI: Add path with directory creation
-        brix dbt project edit -P ./proj/dbt_project.yml --action add-path \
+        brix dbt project edit -p ./proj/dbt_project.yml --action add-path \
             --path-field model-paths --path staging --create-dir
 
         # CLI: Remove a package
-        brix dbt project edit -P ./proj/dbt_project.yml --action remove-package \
+        brix dbt project edit -p ./proj/dbt_project.yml --action remove-package \
             --package dbt-labs/dbt_utils
     """
     if action is None:
@@ -608,7 +631,7 @@ def edit(
 
     # CLI mode - project_path is required
     if project_path is None:
-        typer.echo("--project-path is required in CLI mode", err=True)
+        typer.echo("--project is required in CLI mode", err=True)
         raise typer.Exit(1)
 
     if not project_path.exists():

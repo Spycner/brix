@@ -21,6 +21,7 @@ from brix.modules.dbt.project.service import (
     POPULAR_PACKAGES,
     ProjectConfig,
     ProjectExistsError,
+    fetch_package_versions_parallel,
     get_package_version,
     init_project,
     resolve_project_path,
@@ -457,9 +458,10 @@ def _create_project(
 ) -> None:
     """Create the project with all settings."""
     typer.echo("\nFetching package versions...")
+    versions = fetch_package_versions_parallel(selected_packages)
     packages = []
     for pkg_name in selected_packages:
-        version = get_package_version(pkg_name)
+        version = versions[pkg_name]
         packages.append(HubPackage(package=pkg_name, version=version))
         typer.echo(f"  {pkg_name}: {version}")
 
