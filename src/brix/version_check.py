@@ -5,6 +5,7 @@ from datetime import datetime, timedelta, timezone
 from pathlib import Path
 
 import httpx
+from packaging.version import Version
 from pydantic import BaseModel, ValidationError
 
 from brix import __version__
@@ -86,7 +87,7 @@ def check_for_updates() -> str | None:
         thread.start()
 
     # Return cached result immediately (or None if no cache yet)
-    if cache and cache.latest_version != __version__:
+    if cache and Version(cache.latest_version) > Version(__version__):
         logger.debug("Update available: %s -> %s", __version__, cache.latest_version)
         return cache.latest_version
     return None

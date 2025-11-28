@@ -116,6 +116,7 @@ class TestProjectPathCache:
             os.chdir(tmp_path)
             save_project_cache(Path("my_project"))
             loaded = load_project_cache()
+            assert loaded is not None
             assert loaded.is_absolute()
             assert loaded == project_dir.resolve()
         finally:
@@ -155,11 +156,11 @@ class TestDbtCommand:
             assert result.exit_code == 2
 
     def test_custom_command_not_passed_through(self):
-        """Custom commands like 'setup' should not be passed to dbt."""
+        """Custom commands like 'profile' should not be passed to dbt."""
         with patch.object(dbt_command_module, "run_dbt", return_value=0) as mock_run_dbt:
-            result = runner.invoke(app, ["dbt", "setup"])
+            result = runner.invoke(app, ["dbt", "profile", "-h"])
             assert result.exit_code == 0
-            assert "not yet implemented" in result.output
+            assert "profile" in result.output.lower()  # Shows profile help
             mock_run_dbt.assert_not_called()
 
     def test_cached_project_path_used_on_subsequent_calls(self, tmp_path: Path, monkeypatch: MagicMock):

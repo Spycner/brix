@@ -57,7 +57,7 @@ class DbtGroup(TyperGroup):
 
 app = typer.Typer(
     cls=DbtGroup,
-    help="Run dbt commands.",
+    help="Run dbt commands.\n\nCommands not matching built-in commands will be passed through to dbt CLI.",
     invoke_without_command=True,
     context_settings={"allow_extra_args": True, "ignore_unknown_options": True, "help_option_names": ["-h", "--help"]},
 )
@@ -89,9 +89,3 @@ def dbt_callback(
     # If no args at all, show help
     if ctx.invoked_subcommand is None and not ctx.args and not ctx.protected_args:
         typer.echo(ctx.get_help())
-
-
-@app.command()
-def setup() -> None:
-    """Setup dbt project configuration (placeholder)."""
-    typer.echo("dbt setup - not yet implemented")
