@@ -78,7 +78,7 @@ class LogConfig(BaseSettings):
 class BrixFormatter(logging.Formatter):
     """Human-readable log formatter for console output.
 
-    Format: [2024-01-15T10:30:45Z] [DEBUG] message
+    Format: ``[2024-01-15T10:30:45Z] [DEBUG] message``
     """
 
     def format(self, record: logging.LogRecord) -> str:

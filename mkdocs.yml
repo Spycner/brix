@@ -1,0 +1,73 @@
+site_name: Brix
+site_description: CLI for dbt project and profile management
+site_url: https://spycner.github.io/brix/
+repo_url: https://github.com/Spycner/brix
+repo_name: Spycner/brix
+
+theme:
+  name: material
+  palette:
+    - scheme: default
+      primary: deep purple
+      accent: amber
+      toggle:
+        icon: material/brightness-7
+        name: Switch to dark mode
+    - scheme: slate
+      primary: deep purple
+      accent: amber
+      toggle:
+        icon: material/brightness-4
+        name: Switch to light mode
+  features:
+    - navigation.instant
+    - navigation.sections
+    - navigation.expand
+    - navigation.top
+    - search.highlight
+    - content.code.copy
+    - content.tabs.link
+
+plugins:
+  - search
+  - mkdocstrings:
+      handlers:
+        python:
+          options:
+            docstring_style: google
+            show_source: true
+            show_root_heading: true
+            members_order: source
+
+markdown_extensions:
+  - admonition
+  - pymdownx.details
+  - pymdownx.superfences
+  - pymdownx.tabbed:
+      alternate_style: true
+  - pymdownx.highlight:
+      anchor_linenums: true
+  - pymdownx.inlinehilite
+  - toc:
+      permalink: true
+
+nav:
+  - Home: index.md
+  - Getting Started:
+      - Installation: getting-started/installation.md
+      - Quick Start: getting-started/quickstart.md
+  - User Guide:
+      - Commands Overview: user-guide/commands.md
+      - Profile Management: user-guide/profiles.md
+      - Project Management: user-guide/projects.md
+      - dbt Passthrough: user-guide/passthrough.md
+      - Configuration: user-guide/configuration.md
+  - Developer Guide:
+      - Architecture: developer-guide/architecture.md
+      - Contributing: developer-guide/contributing.md
+      - Adding Adapters: developer-guide/adding-adapters.md
+      - Testing: developer-guide/testing.md
+  - API Reference:
+      - Overview: api/index.md
+      - Modules: api/modules.md
+      - Models: api/models.md
