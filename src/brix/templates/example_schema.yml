@@ -1,0 +1,12 @@
+version: 2
+
+models:
+  - name: my_first_model
+    description: "An example model to help you get started"
+    columns:
+      - name: id
+        description: "Example ID column"
+      - name: message
+        description: "Example message"
+      - name: created_at
+        description: "Timestamp when this was queried"

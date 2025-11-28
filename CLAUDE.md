@@ -13,6 +13,7 @@ uv run poe typecheck       # Run ty type checking
 uv run poe test            # Run all tests
 uv run poe test-unit       # Run unit tests only
 uv run poe test-integration # Run integration tests only
+uv run poe test-e2e        # Run e2e tests (real dbt execution)
 uv run poe check           # Run lint + typecheck together
 ```
 

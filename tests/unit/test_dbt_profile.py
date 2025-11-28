@@ -101,7 +101,8 @@ default:
         output = DuckDbOutput(type="duckdb")
         assert output.path == ":memory:"
         assert output.schema_ == "main"
-        assert output.database == "main"
+        # database is automatically set to 'memory' when path is ':memory:'
+        assert output.database == "memory"
         assert output.threads == 1
         assert output.extensions == []
         assert output.settings == {}

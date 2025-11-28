@@ -149,6 +149,15 @@ class TestCheckForUpdates:
         result = check_for_updates()
         assert result is None
 
+    def test_installed_version_newer_than_cached(self, temp_cache_dir, monkeypatch):
+        """Ensure no update shown when installed version is newer than cached (e.g., 1.1.0 > 1.0.1)."""
+        monkeypatch.setattr(version_check, "__version__", "1.1.0")
+        cache = VersionCache(last_check=datetime.now(timezone.utc), latest_version="1.0.1")
+        temp_cache_dir.parent.mkdir(parents=True, exist_ok=True)
+        temp_cache_dir.write_text(cache.model_dump_json())
+        result = check_for_updates()
+        assert result is None
+
     def test_spawns_background_thread_when_stale(self, temp_cache_dir, monkeypatch):
         monkeypatch.setattr(version_check, "__version__", "1.0.0")
         old_time = datetime.now(timezone.utc) - CHECK_INTERVAL - timedelta(hours=1)

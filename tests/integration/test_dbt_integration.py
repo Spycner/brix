@@ -50,8 +50,8 @@ class TestDbtIntegration:
 
 
 @pytest.mark.integration
-class TestDbtCliIntegration:
-    """Integration tests for dbt passthrough via the CLI."""
+class TestBrixDbtIntegration:
+    """Integration tests for dbt passthrough via the brix CLI."""
 
     def test_brix_dbt_version(self):
         """Test brix dbt --version runs successfully."""

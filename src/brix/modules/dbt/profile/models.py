@@ -29,6 +29,13 @@ class DuckDbOutput(BaseModel):
     extensions: list[str] = Field(default_factory=list)
     settings: dict[str, Any] = Field(default_factory=dict)
 
+    @model_validator(mode="after")
+    def sync_database_with_memory_path(self) -> Self:
+        """Set database to 'memory' when path is ':memory:' for dbt-duckdb compatibility."""
+        if self.path == ":memory:" and self.database != "memory":
+            self.database = "memory"
+        return self
+
 
 # Authentication method types for Databricks
 DatabricksAuthType = Literal["oauth"]
@@ -238,5 +245,6 @@ class DbtProfiles(BaseModel):
         import yaml
 
         # Convert to dict, handling nested models
-        data = {name: profile.model_dump(exclude_none=True) for name, profile in self.root.items()}
+        # Use by_alias=True to output 'schema' instead of 'schema_'
+        data = {name: profile.model_dump(exclude_none=True, by_alias=True) for name, profile in self.root.items()}
         return yaml.dump(data, default_flow_style=False, sort_keys=False)
