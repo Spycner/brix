@@ -2,6 +2,31 @@
 
 <!-- version list -->
 
+## v1.2.0 (2025-11-28)
+
+### Bug Fixes
+
+- Update version check logic and clean up dbt command
+  ([`d3274eb`](https://github.com/Spycner/brix/commit/d3274ebb85fdda51c46e6ee1fc9b3de2be905c8d))
+
+### Features
+
+- Add dbt project management commands and structure
+  ([`a9a3ff0`](https://github.com/Spycner/brix/commit/a9a3ff0378dbe06ce8abcabce2ff11dd0dee4f5c))
+
+- Add end-to-end testing and enhance dbt project management
+  ([`37ca697`](https://github.com/Spycner/brix/commit/37ca69737c445ed3aebd074e247785bfa55a983c))
+
+- Enhance dbt command with project path caching and validation
+  ([`da9a53f`](https://github.com/Spycner/brix/commit/da9a53f66e5e9921e907f3d4949daf9b93108ac9))
+
+- Enhance dbt project package management with validation and parallel fetching
+  ([`59b7a0d`](https://github.com/Spycner/brix/commit/59b7a0d08371206a9774fcde0241c080090c97a4))
+
+- Implement interactive editing for dbt projects
+  ([`39ad0f9`](https://github.com/Spycner/brix/commit/39ad0f925bc5f3cbc584cb1ad6740ca92bd00f82))
+
+
 ## v1.1.0 (2025-11-27)
 
 ### Features
