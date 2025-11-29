@@ -1,6 +1,5 @@
 # Brix
 
-[![PyPI version](https://badge.fury.io/py/brix.svg)](https://badge.fury.io/py/brix)
 [![License: MIT](https://img.shields.io/badge/License-MIT-yellow.svg)](https://opensource.org/licenses/MIT)
 [![Documentation](https://img.shields.io/badge/docs-mkdocs-blue.svg)](https://spycner.github.io/brix/)
 
