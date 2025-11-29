@@ -10,6 +10,7 @@ dependencies = [
     "httpx>=0.28.1",
     "pydantic>=2.12.5",
     "pydantic-settings>=2.12.0",
+    "pyyaml>=6.0",
     "questionary>=2.1.1",
     "typer>=0.20.0",
 ]
@@ -80,7 +81,7 @@ unfixable = ["B"]
 
 [tool.ruff.lint.per-file-ignores]
 "__init__.py" = ["E402"]
-"tests/*" = ["S101", "ANN", "D"]
+"tests/*" = ["S101", "ANN", "D", "S603", "S607"]
 
 [tool.ruff.lint.pydocstyle]
 convention = "google"
