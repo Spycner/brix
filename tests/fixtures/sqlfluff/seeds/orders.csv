@@ -1,0 +1,11 @@
+order_id,customer_id,order_date,total_amount,status
+1001,1,2023-06-01,1349.98,completed
+1002,2,2023-06-05,599.99,completed
+1003,1,2023-06-10,129.99,completed
+1004,4,2023-06-15,1749.98,completed
+1005,6,2023-06-20,249.99,completed
+1006,7,2023-07-01,479.98,completed
+1007,9,2023-07-10,89.99,completed
+1008,10,2023-07-15,1299.99,pending
+1009,2,2023-07-20,209.98,completed
+1010,4,2023-07-25,399.99,shipped

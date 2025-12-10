@@ -1,0 +1,55 @@
+version: 2
+
+models:
+  - name: dim_customers
+    description: Customer dimension with lifetime value metrics
+    columns:
+      - name: customer_key
+        description: Surrogate key for customer dimension
+        data_tests:
+          - unique
+          - not_null
+      - name: customer_id
+        description: Natural key from source system
+        data_tests:
+          - unique
+          - not_null
+      - name: customer_tier
+        description: Customer value tier (platinum, gold, silver, bronze, prospect)
+        data_tests:
+          - accepted_values:
+              values: ['platinum', 'gold', 'silver', 'bronze', 'prospect']
+
+  - name: fct_orders
+    description: Order fact table with incremental refresh
+    columns:
+      - name: order_key
+        description: Surrogate key for order fact
+        data_tests:
+          - unique
+          - not_null
+      - name: order_id
+        description: Natural key from source system
+        data_tests:
+          - unique
+          - not_null
+      - name: customer_key
+        description: Foreign key to dim_customers
+        data_tests:
+          - relationships:
+              to: ref('dim_customers')
+              field: customer_key
+
+  - name: dim_products
+    description: Product dimension with sales metrics
+    columns:
+      - name: product_key
+        description: Surrogate key for product dimension
+        data_tests:
+          - unique
+          - not_null
+      - name: product_id
+        description: Natural key from source system
+        data_tests:
+          - unique
+          - not_null

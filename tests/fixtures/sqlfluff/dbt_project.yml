@@ -1,0 +1,21 @@
+name: sqlfluff
+profile: default
+version: 1.0.0
+config-version: 2
+model-paths:
+- models
+seed-paths:
+- seeds
+test-paths:
+- tests
+macro-paths:
+- macros
+snapshot-paths:
+- snapshots
+analysis-paths:
+- analyses
+asset-paths:
+- assets
+clean-targets:
+- target
+- dbt_packages

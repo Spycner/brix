@@ -28,3 +28,7 @@ htmlcov
 
 logs
 site
+
+manual_test
+
+*.duckdb

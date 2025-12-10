@@ -1,0 +1,6 @@
+target/
+dbt_packages/
+dbt_modules/
+macros/
+logs/
+tests/generic/

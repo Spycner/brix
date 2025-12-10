@@ -1,0 +1,68 @@
+version: 2
+
+models:
+  - name: stg_customers
+    description: Staged customer data with standardized fields
+    columns:
+      - name: customer_id
+        description: Primary key for customers
+        data_tests:
+          - unique
+          - not_null
+      - name: email
+        description: Customer email, lowercased
+        data_tests:
+          - not_null
+      - name: is_active
+        description: Boolean flag indicating active status
+
+  - name: stg_products
+    description: Staged product catalog with price tier classification
+    columns:
+      - name: product_id
+        description: Primary key for products
+        data_tests:
+          - unique
+          - not_null
+      - name: price
+        description: Product price in USD
+        data_tests:
+          - not_null
+      - name: price_tier
+        description: Price tier classification (premium, standard, budget)
+
+  - name: stg_orders
+    description: Staged order data with status flags
+    columns:
+      - name: order_id
+        description: Primary key for orders
+        data_tests:
+          - unique
+          - not_null
+      - name: customer_id
+        description: Foreign key to customers
+        data_tests:
+          - not_null
+          - relationships:
+              to: ref('stg_customers')
+              field: customer_id
+
+  - name: stg_order_items
+    description: Staged order line items with calculated totals
+    columns:
+      - name: order_item_id
+        description: Primary key for order items
+        data_tests:
+          - unique
+          - not_null
+      - name: order_id
+        description: Foreign key to orders
+        data_tests:
+          - not_null
+          - relationships:
+              to: ref('stg_orders')
+              field: order_id
+      - name: product_id
+        description: Foreign key to products
+        data_tests:
+          - not_null

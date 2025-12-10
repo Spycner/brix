@@ -1,0 +1,11 @@
+product_id,product_name,category,price,created_at
+101,Laptop Pro,Electronics,1299.99,2023-01-01 00:00:00
+102,Wireless Mouse,Electronics,49.99,2023-01-01 00:00:00
+103,USB-C Hub,Electronics,79.99,2023-01-15 00:00:00
+104,Standing Desk,Furniture,599.99,2023-02-01 00:00:00
+105,Ergonomic Chair,Furniture,449.99,2023-02-01 00:00:00
+106,Monitor 27in,Electronics,399.99,2023-03-01 00:00:00
+107,Keyboard Mechanical,Electronics,129.99,2023-03-15 00:00:00
+108,Desk Lamp,Furniture,89.99,2023-04-01 00:00:00
+109,Webcam HD,Electronics,159.99,2023-04-15 00:00:00
+110,Headphones Wireless,Electronics,249.99,2023-05-01 00:00:00

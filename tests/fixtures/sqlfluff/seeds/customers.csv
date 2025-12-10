@@ -1,0 +1,11 @@
+customer_id,first_name,last_name,email,created_at,status
+1,John,Doe,john.doe@example.com,2023-01-15 10:30:00,active
+2,Jane,Smith,jane.smith@example.com,2023-02-20 14:45:00,active
+3,Bob,Johnson,bob.j@example.com,2023-03-10 09:15:00,inactive
+4,Alice,Williams,alice.w@example.com,2023-04-05 16:20:00,active
+5,Charlie,Brown,charlie.b@example.com,2023-05-12 11:00:00,churned
+6,Diana,Davis,diana.d@example.com,2023-06-18 13:30:00,active
+7,Edward,Miller,edward.m@example.com,2023-07-22 08:45:00,active
+8,Fiona,Garcia,fiona.g@example.com,2023-08-30 15:10:00,inactive
+9,George,Martinez,george.m@example.com,2023-09-14 10:00:00,active
+10,Hannah,Anderson,hannah.a@example.com,2023-10-25 12:15:00,active

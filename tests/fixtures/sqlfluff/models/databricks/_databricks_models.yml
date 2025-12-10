@@ -1,0 +1,50 @@
+version: 2
+
+models:
+  - name: delta_merge_example
+    description: |
+      Demonstrates Databricks MERGE INTO patterns with dbt incremental models.
+      Uses merge strategy for upserts with ZORDER optimization.
+    columns:
+      - name: customer_id
+        description: Unique customer identifier (merge key)
+        data_tests:
+          - unique
+          - not_null
+      - name: _merge_action
+        description: Indicates whether record was inserted or updated
+
+  - name: copy_into_example
+    description: |
+      Demonstrates COPY INTO patterns for external data ingestion.
+      Shows how to structure staging tables for cloud storage loads.
+    columns:
+      - name: event_id
+        description: Unique event identifier
+        data_tests:
+          - unique
+          - not_null
+
+  - name: unity_catalog_example
+    description: |
+      Demonstrates Unity Catalog 3-level namespace patterns.
+      Shows cross-catalog and cross-schema query patterns.
+    columns:
+      - name: customer_id
+        description: Customer identifier
+      - name: source_catalog
+        description: Configured source catalog name
+      - name: current_catalog
+        description: Runtime current catalog
+
+  - name: liquid_clustering_example
+    description: |
+      Demonstrates Databricks Liquid Clustering configuration.
+      Replaces ZORDER with automatic clustering optimization.
+    columns:
+      - name: order_id
+        description: Order identifier
+      - name: order_date
+        description: Order date (clustering key)
+      - name: customer_id
+        description: Customer identifier (clustering key)
