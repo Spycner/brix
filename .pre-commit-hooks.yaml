@@ -57,3 +57,44 @@
   require_serial: true
   pass_filenames: false
   always_run: true
+
+# PowerShell hooks - cross-platform (requires pwsh / PowerShell Core)
+- id: sqlfluff-lint-pwsh
+  name: SQLFluff Lint - PowerShell (discover all projects)
+  description: Discover all .sqlfluff directories and run lint in each
+  entry: pwsh -NoProfile -File scripts/sqlfluff-project.ps1 -Mode lint
+  language: system
+  types: [sql]
+  require_serial: true
+  pass_filenames: false
+  always_run: true
+
+- id: sqlfluff-fix-pwsh
+  name: SQLFluff Fix - PowerShell (discover all projects)
+  description: Discover all .sqlfluff directories and run fix in each
+  entry: pwsh -NoProfile -File scripts/sqlfluff-project.ps1 -Mode fix
+  language: system
+  types: [sql]
+  require_serial: true
+  pass_filenames: false
+  always_run: true
+
+- id: sqlfluff-dbt-lint-pwsh
+  name: SQLFluff Lint - PowerShell (dbt projects only)
+  description: Discover directories with .sqlfluff + dbt_project.yml and lint
+  entry: pwsh -NoProfile -File scripts/sqlfluff-project.ps1 -Mode lint -RequireDbt
+  language: system
+  types: [sql]
+  require_serial: true
+  pass_filenames: false
+  always_run: true
+
+- id: sqlfluff-dbt-fix-pwsh
+  name: SQLFluff Fix - PowerShell (dbt projects only)
+  description: Discover directories with .sqlfluff + dbt_project.yml and fix
+  entry: pwsh -NoProfile -File scripts/sqlfluff-project.ps1 -Mode fix -RequireDbt
+  language: system
+  types: [sql]
+  require_serial: true
+  pass_filenames: false
+  always_run: true
