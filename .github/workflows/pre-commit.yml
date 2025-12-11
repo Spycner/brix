@@ -16,6 +16,10 @@ jobs:
       - name: Install dependencies
         run: uv sync --dev
 
+      - name: Install dbt packages for test fixtures
+        run: |
+          cd tests/fixtures/sqlfluff && uv run dbt deps
+
       - uses: pre-commit/action@v3.0.1
 
       - name: Install docs dependencies
