@@ -2,6 +2,42 @@
 
 <!-- version list -->
 
+## v1.4.0 (2025-12-11)
+
+### Chores
+
+- Simplify GitHub Actions workflow by removing Python version matrix
+  ([`72fff18`](https://github.com/Spycner/brix/commit/72fff18c705fa34efed8b173fd1283d35a46d47b))
+
+- Update dependencies and add end-to-end tests for git installation
+  ([`caf7f49`](https://github.com/Spycner/brix/commit/caf7f49e63f52a4f833fdcc0a05788b91a4c1bab))
+
+- Update pre-commit configuration and add GitHub Actions workflow for testing
+  ([`0a0fdaf`](https://github.com/Spycner/brix/commit/0a0fdaf368f32c49cc3397607a4daedc3622d2bd))
+
+- Update project configuration and add SQLFluff support
+  ([`0826841`](https://github.com/Spycner/brix/commit/0826841bae6506da1dc148770b003e7dff92105e))
+
+### Documentation
+
+- Remove PyPI badge from README for clarity
+  ([`2bcab1a`](https://github.com/Spycner/brix/commit/2bcab1a9715ecdd79be42e3dfd2e60efd38045ae))
+
+### Features
+
+- Add dbt package installation step for test fixtures in pre-commit workflow
+  ([`217d277`](https://github.com/Spycner/brix/commit/217d277d66631cbd6f0444d591f5aabee2685376))
+
+- Add PowerShell hooks for SQLFluff linting and fixing
+  ([`ceecd9a`](https://github.com/Spycner/brix/commit/ceecd9abcb2decb05d524d635cec96516ba5eb63))
+
+- Add SQLFluff pre-commit hooks and scripts for project linting and fixing
+  ([`87d4e79`](https://github.com/Spycner/brix/commit/87d4e7986fe7a562c992acff11a8c39c54ed029a))
+
+- Add SQLFluff profiles configuration for testing
+  ([`51875c9`](https://github.com/Spycner/brix/commit/51875c95f347b4e80af501196ed77a2750d24754))
+
+
 ## v1.3.0 (2025-11-28)
 
 ### Chores
