@@ -33,6 +33,12 @@ param(
 Set-StrictMode -Version Latest
 $ErrorActionPreference = 'Stop'
 
+# Determine how to invoke sqlfluff:
+# - If pyproject.toml exists (project context), use 'uv run' to use project dependencies
+# - Otherwise (external hook consumer), use sqlfluff directly if available
+$script:UseSqlfluffDirect = (-not (Test-Path 'pyproject.toml')) -and
+                            [bool](Get-Command 'sqlfluff' -ErrorAction SilentlyContinue)
+
 # Directories to skip when discovering .sqlfluff files
 $SkipDirs = @(
     '.venv',
@@ -114,7 +120,7 @@ function Invoke-Sqlfluff {
     )
 
     $root = Get-Location
-    $projects = Find-SqlfluffProjects -Root $root -RequireDbt:$RequireDbt
+    $projects = @(Find-SqlfluffProjects -Root $root -RequireDbt:$RequireDbt)
 
     if (-not $projects -or $projects.Count -eq 0) {
         $configType = if ($RequireDbt) { '.sqlfluff + dbt_project.yml' } else { '.sqlfluff' }
@@ -124,7 +130,7 @@ function Invoke-Sqlfluff {
 
     Write-Host "Found $($projects.Count) project(s) with .sqlfluff config"
 
-    $exitCode = 0
+    $results = @()
 
     foreach ($projectDir in $projects) {
         Write-Host "`n=== Running sqlfluff $Mode in $projectDir ==="
@@ -137,10 +143,24 @@ function Invoke-Sqlfluff {
 
         Push-Location $projectDir
         try {
-            & sqlfluff @args
+            # Capture both stdout and stderr
+            if ($script:UseSqlfluffDirect) {
+                $output = & sqlfluff @args 2>&1 | Out-String
+            } else {
+                $output = & uv run sqlfluff @args 2>&1 | Out-String
+            }
             $result = $LASTEXITCODE
-            if ($result -gt $exitCode) {
-                $exitCode = $result
+
+            # Store result for summary
+            $results += [PSCustomObject]@{
+                Project  = $projectDir
+                ExitCode = $result
+                Output   = $output.Trim()
+            }
+
+            # Show output immediately for feedback
+            if ($output.Trim()) {
+                Write-Host $output.Trim()
             }
         }
         finally {
@@ -148,6 +168,28 @@ function Invoke-Sqlfluff {
         }
     }
 
+    # Print summary
+    $failed = @($results | Where-Object { $_.ExitCode -ne 0 })
+    $passed = @($results | Where-Object { $_.ExitCode -eq 0 })
+
+    Write-Host "`n"
+    Write-Host ("=" * 60)
+    Write-Host "SUMMARY: $($passed.Count) passed, $($failed.Count) failed"
+    Write-Host ("=" * 60)
+
+    if ($failed.Count -gt 0) {
+        Write-Host "`nFailed projects:"
+        foreach ($f in $failed) {
+            Write-Host "`n--- $($f.Project) (exit code: $($f.ExitCode)) ---"
+            if ($f.Output) {
+                Write-Host $f.Output
+            }
+        }
+    }
+
+    # Return highest exit code
+    $exitCode = ($results | Measure-Object -Property ExitCode -Maximum).Maximum
+    if ($null -eq $exitCode) { $exitCode = 0 }
     return $exitCode
 }
 
