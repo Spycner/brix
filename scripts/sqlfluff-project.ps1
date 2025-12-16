@@ -53,6 +53,39 @@ $SkipDirs = @(
     'build'
 )
 
+function Ensure-DbtProfiles {
+    <#
+    .SYNOPSIS
+        Ensure a default profiles.yml exists for dbt templater.
+    #>
+    $profileDir = Join-Path $HOME '.dbt'
+    $profilePath = Join-Path $profileDir 'profiles.yml'
+
+    if (Test-Path $profilePath) {
+        return
+    }
+
+    Write-Host "Creating default profiles.yml at $profilePath"
+
+    if (-not (Test-Path $profileDir)) {
+        New-Item -ItemType Directory -Path $profileDir -Force | Out-Null
+    }
+
+    $content = @"
+default:
+  target: dev
+  outputs:
+    dev:
+      type: databricks
+      schema: default
+      host: your-workspace.cloud.databricks.com
+      http_path: /sql/1.0/warehouses/your-warehouse-id
+      token: your-personal-access-token
+      threads: 1
+"@
+    Set-Content -Path $profilePath -Value $content -Encoding UTF8
+}
+
 function Find-SqlfluffProjects {
     <#
     .SYNOPSIS
@@ -194,5 +227,6 @@ function Invoke-Sqlfluff {
 }
 
 # Main execution
+Ensure-DbtProfiles
 $result = Invoke-Sqlfluff -Mode $Mode -RequireDbt:$RequireDbt
 exit $result
