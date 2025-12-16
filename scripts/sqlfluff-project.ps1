@@ -57,15 +57,17 @@ function Ensure-DbtProfiles {
     <#
     .SYNOPSIS
         Ensure a default profiles.yml exists for dbt templater.
+    .OUTPUTS
+        Returns $true if a mock profile was created, $false if one already existed.
     #>
     $profileDir = Join-Path $HOME '.dbt'
     $profilePath = Join-Path $profileDir 'profiles.yml'
 
     if (Test-Path $profilePath) {
-        return
+        return $false
     }
 
-    Write-Host "Creating default profiles.yml at $profilePath"
+    Write-Host "Creating temporary profiles.yml at $profilePath"
 
     if (-not (Test-Path $profileDir)) {
         New-Item -ItemType Directory -Path $profileDir -Force | Out-Null
@@ -84,6 +86,26 @@ default:
       threads: 1
 "@
     Set-Content -Path $profilePath -Value $content -Encoding UTF8
+    return $true
+}
+
+function Remove-MockDbtProfiles {
+    <#
+    .SYNOPSIS
+        Remove a mock profiles.yml that was created by Ensure-DbtProfiles.
+    #>
+    $profileDir = Join-Path $HOME '.dbt'
+    $profilePath = Join-Path $profileDir 'profiles.yml'
+
+    if (Test-Path $profilePath) {
+        Write-Host "Cleaning up temporary profiles.yml"
+        Remove-Item -Path $profilePath -Force
+    }
+
+    # Also remove the .dbt directory if it's now empty
+    if ((Test-Path $profileDir) -and ((Get-ChildItem -Path $profileDir -Force | Measure-Object).Count -eq 0)) {
+        Remove-Item -Path $profileDir -Force
+    }
 }
 
 function Find-SqlfluffProjects {
@@ -227,6 +249,13 @@ function Invoke-Sqlfluff {
 }
 
 # Main execution
-Ensure-DbtProfiles
-$result = Invoke-Sqlfluff -Mode $Mode -RequireDbt:$RequireDbt
+$createdMockProfile = Ensure-DbtProfiles
+try {
+    $result = Invoke-Sqlfluff -Mode $Mode -RequireDbt:$RequireDbt
+}
+finally {
+    if ($createdMockProfile) {
+        Remove-MockDbtProfiles
+    }
+}
 exit $result
