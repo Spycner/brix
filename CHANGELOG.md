@@ -2,6 +2,14 @@
 
 <!-- version list -->
 
+## v1.7.0 (2025-12-18)
+
+### Features
+
+- Run deps if necessary on pre-commit hook
+  ([`6b2b0c9`](https://github.com/Spycner/brix/commit/6b2b0c9ba046af9689b9a752ccf13165a3dab1b6))
+
+
 ## v1.6.0 (2025-12-16)
 
 ### Features
